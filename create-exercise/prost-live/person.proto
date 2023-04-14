@@ -1,5 +1,6 @@
 syntax = "proto3";
-package tutorial;
+// 生成的文件名
+package prost_live;
 
 message Person {
   string name = 1;
