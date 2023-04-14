@@ -1,3 +1,4 @@
+#[derive(serde::Serialize, serde::Deserialize)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Person {
@@ -8,19 +9,29 @@ pub struct Person {
     pub id: i32,
     #[prost(string, tag = "3")]
     pub email: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "4")]
+    #[prost(bytes = "vec", tag = "4")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(btree_map = "string, int32", tag = "5")]
+    pub scores: ::prost::alloc::collections::BTreeMap<
+        ::prost::alloc::string::String,
+        i32,
+    >,
+    #[prost(message, repeated, tag = "6")]
     pub phones: ::prost::alloc::vec::Vec<person::PhoneNumber>,
 }
 /// Nested message and enum types in `Person`.
 pub mod person {
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct PhoneNumber {
         #[prost(string, tag = "1")]
         pub number: ::prost::alloc::string::String,
         #[prost(enumeration = "PhoneType", tag = "2")]
-        pub r#type: i32,
+        pub phone_type: i32,
     }
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(
         Clone,
         Copy,
@@ -62,6 +73,7 @@ pub mod person {
     }
 }
 /// Our address book file is just one of these.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddressBook {
