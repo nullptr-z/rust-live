@@ -1,18 +1,19 @@
 use axum::{
     async_trait,
+    body::{boxed, Full},
     extract::{Extension, FromRequest, RequestParts, TypedHeader},
     headers::{authorization::Bearer, Authorization},
-    http::StatusCode,
-    response::Html,
+    http::{header, StatusCode, Uri},
     response::IntoResponse,
+    response::Response,
     routing::{get, post},
     Json, Router, Server,
 };
 use jsonwebtoken as jwt;
 use jwt::Validation;
+use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::BorrowMut,
     fmt::Debug,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{atomic::AtomicUsize, Arc, RwLock},
@@ -59,6 +60,38 @@ struct TodoStore {
     items: Arc<RwLock<Vec<Todo>>>,
 }
 
+#[derive(RustEmbed)]
+#[folder = "./axum-live/out"]
+struct Assets;
+
+struct StaticFile<T>(pub T);
+
+impl<T> IntoResponse for StaticFile<T>
+where
+    T: Into<String>,
+{
+    fn into_response(self) -> Response {
+        let path = self.0.into();
+        match Assets::get(path.as_str()) {
+            Some(content) => {
+                let body = boxed(Full::from(content.data));
+                let mime = mime_guess::from_path(path.as_str()).first_or_octet_stream();
+                Response::builder()
+                    .header(header::CONTENT_TYPE, mime.as_ref())
+                    .body(body)
+                    .unwrap()
+            }
+            None => {
+                let body = boxed(Full::from(format!("File not found: {}", path)));
+                Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(body)
+                    .unwrap()
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl<B> FromRequest<B> for Claims
 where
@@ -98,7 +131,7 @@ enum HttpError {
 
 /// `type Rejection`要求实现 `IntoResponse Trait`
 impl IntoResponse for HttpError {
-    fn into_response(self) -> axum::response::Response {
+    fn into_response(self) -> Response {
         let (code, msg) = match self {
             HttpError::Auth => (StatusCode::UNAUTHORIZED, "Unauthorized"),
             HttpError::InvalidSignature => (StatusCode::FORBIDDEN, "InvalidSignature`token失效"),
@@ -122,7 +155,13 @@ async fn main() {
             get(todos_handler)
                 .post(create_todo_handler)
                 .layer(Extension(store)),
-        );
+        )
+        // 末端layer用于在所有路由之后添加一个中间件；
+        // 此处为所有路由都添加了`Extension(store)`
+        // .layer(Extension(store))
+        //--------------------------------------------
+        // fallback处理所有未匹配的路由
+        .fallback(get(static_handler));
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
     println!("Listening on http://{}", addr);
@@ -133,8 +172,15 @@ async fn main() {
         .unwrap()
 }
 
-async fn index_handler() -> Html<&'static str> {
-    Html("the is axum live")
+async fn index_handler() -> impl IntoResponse {
+    StaticFile("index.html")
+    // static_handler("/index.html".parse().unwrap()).await;
+}
+
+async fn static_handler(uri: Uri) -> impl IntoResponse {
+    // trim_end_matches去除路径末尾的/
+    let path = uri.path().trim_start_matches('/').to_string();
+    StaticFile(path)
 }
 
 async fn todos_handler(
