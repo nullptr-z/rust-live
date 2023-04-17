@@ -1,6 +1,6 @@
 学习使用`prost`库，它是一个用于编译`protobuf`的库
 
-## 用法
+## demo 使用指南
 主要参考`src/build.rs`文件，使用`prost_build::compile_protos`函数来编译`protobuf`文件,存放在`src/pb`目录下
 
 使用示例在example/person目录下

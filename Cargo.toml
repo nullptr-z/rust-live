@@ -9,5 +9,6 @@ edition = "2021"
 [workspace]
 members = [
   "create-practice/prost-live",
-  "create-practice/axum-live"
+  "create-practice/axum-live",
+  "create-practice/axum-ws-live"
 ]
