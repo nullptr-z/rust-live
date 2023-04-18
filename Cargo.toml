@@ -10,5 +10,9 @@ edition = "2021"
 members = [
   "create-practice/prost-live",
   "create-practice/axum-live",
-  "create-practice/axum-ws-live"
+  "create-practice/axum-ws-live",
+  "create-practice/dioxus-live"
 ]
+
+[dependencies]
+dioxus = "0.3.2"
