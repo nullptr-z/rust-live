@@ -17,6 +17,7 @@ pub enum MsgData {
 
 ## 强关联Crates
 * axum
+* tokio
 
 ## 用到的Crates
 * dashmap
@@ -28,6 +29,8 @@ pub enum MsgData {
 * axum-ws
 * 消息
 * 通信
+* spawn
+* 异步
 
 
 ## 技巧

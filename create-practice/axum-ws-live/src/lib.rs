@@ -2,6 +2,7 @@ mod msg;
 
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Debug,
     sync::{mpsc::Receiver, Arc},
 };
 
@@ -16,7 +17,7 @@ use axum::{
 // DshMap: 相当于 RwLock<HashMap>，但是性能更好
 // DashSet: 相当于 RwLock<HashSet>，但是性能更好
 use dashmap::{DashMap, DashSet};
-use futures::{SinkExt, StreamExt};
+use futures::{Sink, SinkExt, Stream, StreamExt};
 pub use msg::{Msg, MsgData};
 use tokio::sync::broadcast;
 use tracing::log::warn;
@@ -53,39 +54,93 @@ impl ChatState {
     pub fn new() -> Self {
         Self(Default::default())
     }
+
+    // 返回 username 用户所有 room, 如果没有返回空的 Vec
+    pub fn get_user_rooms(&self, username: &str) -> Vec<String> {
+        self.0
+            .user_rooms
+            .get(username)
+            .map(|room| room.clone().into_iter().collect())
+            // 如果这个用户没有room，返回一个空的 Vec
+            .unwrap_or_default()
+    }
+
+    // 返回 room 所有的用户user, 如果没有返回空的 Vec
+    pub fn get_room_users(&self, room: &str) -> Vec<String> {
+        self.0
+            .room_users
+            .get(room)
+            .map(|user| user.clone().into_iter().collect())
+            .unwrap_or_default()
+    }
 }
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
+    // claims: Cliams,
     Extension(state): Extension<ChatState>,
 ) -> impl IntoResponse {
     ws.on_upgrade(|socket| handl_socket(socket, state))
 }
 
-async fn handl_socket(socket: WebSocket, state: ChatState) {
+async fn handl_socket<S>(socket: S, state: ChatState)
+where
+    // 这里的 S 是一个异步流，用于接收客户端的消息
+    // 'static 表示这个流的生命周期是整个程序,是一个 owned 的类型,这是必要的，因为我们需要将它传递给 tokio::spawn
+    // 如果 S是一个 Reference，那么它的生命周期就是这个函数，而不是整个程序
+    S: Stream<Item = Result<Message, axum::Error>> + Sink<Message> + 'static + Send,
+{
+    // 这里的 rx 是一个广播通道，用于向所有的客户端发送消息
     let mut rx = state.0.tx.subscribe();
+    // 将socket分成发送者和接收者
     let (mut sende, mut receiver) = socket.split();
 
-    // let state_cloned = state.clone();
-    let recv_task = tokio::spawn(async move {
+    let state1 = state.clone();
+    // 不停地从客户端接收` receiver.next()`消息`Message`，并处理消息`handel_message`
+    let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             match msg {
                 Message::Text(msg) => {
-                    handel_message(msg.as_str().try_into().unwrap(), state.0.clone()).await;
+                    handel_message(msg.as_str().try_into().unwrap(), state1.0.clone()).await;
                 }
                 _ => (),
             }
         }
     });
 
-    let send_task = tokio::spawn(async move {
+    // 从广播通道接收消息`rx.recv`，并发送给客户端`sende.send`
+    let mut send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
             let data = msg.as_ref().try_into().unwrap();
             if let Err(e) = sende.send(Message::Text(data)).await {
-                warn!("error sending message`发送消息出现错误 : {}", e)
+                warn!("error sending message`发送消息出现错误");
+                break;
             }
         }
     });
+
+    // if any of the tasks fail, we need to shut down the other one`如果任意任务(receiver or send)失败，则另一个任务也需要关闭。
+    tokio::select! {
+        _v1 =&mut recv_task => {
+            // 如果接收任务失败，那么发送任务也需要关闭
+            send_task.abort();
+        }
+        _v2 =&mut send_task => {
+            // 如果发送任务失败，那么接收任务也需要关闭
+            recv_task.abort();
+        }
+    }
+
+    // this user has left. Should send a leave message to all other users in the room`这个用户已经离开了。应该向room中的所有其他用户发送离开消息
+    // usually we can get username from auth header, here we just use "fake_user"`通常我们可以从 auth header 中获取 username，这里只是使用 "fake_user"模拟
+    let username = "fake_user";
+    warn!("connection for {username } closed`连接关闭");
+    let rooms = state.get_user_rooms(username);
+    for room in rooms {
+        if let Err(e) = state.0.tx.send(Arc::new(Msg::leave(&room, username))) {
+            warn!("failed to send leave message`发送失败信息 : {e}");
+        }
+    }
 }
 
 async fn handel_message(msg: Msg, state: Arc<State>) {
