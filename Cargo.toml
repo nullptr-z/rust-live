@@ -11,7 +11,8 @@ members = [
   "create-practice/prost-live",
   "create-practice/axum-live",
   "create-practice/axum-ws-live",
-  "create-practice/dioxus-live"
+  # "create-practice/dioxus-live",
+  "create-practice/tonic-live",
 ]
 
 [dependencies]
