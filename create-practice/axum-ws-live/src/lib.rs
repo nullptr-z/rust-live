@@ -1,16 +1,9 @@
 mod msg;
 
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    sync::{mpsc::Receiver, Arc},
-};
+use std::{fmt::Debug, sync::Arc};
 
 use axum::{
-    extract::{
-        ws::{Message, WebSocket},
-        WebSocketUpgrade,
-    },
+    extract::{ws::Message, WebSocketUpgrade},
     response::IntoResponse,
     Extension,
 };
