@@ -2227,10 +2227,14 @@ dependencies = [
 name = "tonic-live"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "futures",
  "prost",
  "tokio",
  "tonic",
  "tonic-build",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -36,7 +36,7 @@ message GetMessageRequest{
 message ChatMessage{
   // who send this message`谁发送的消息
   string sender=1;
-  // room this message belongs to`消息所属的房间
+  // room this message belongs to`消息所属的room
   string room=2;
   // message content`消息内容
   string content=3;
@@ -44,11 +44,11 @@ message ChatMessage{
   int64 timestamp=4;
 }
 
-service ChatService{
+service Chat{
   // Login user and get token
   rpc Login(LoginRequest) returns (Token){}
   // send meesgae to a room
   rpc SendMessage(NewChatMessage)returns(SendMessageResponse){}
   // subscribe and get all message`订阅并获取所有消息
-  rpc getMessage(GetMessageRequest)returns(stream ChatMessage){}
+  rpc GetMessage(GetMessageRequest)returns(stream ChatMessage){}
 }
