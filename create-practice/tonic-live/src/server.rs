@@ -7,15 +7,15 @@ use std::pin::Pin;
 use tokio::sync::{broadcast, mpsc};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{
-    codegen::futures_core::Stream, service::interceptor, transport::Server, Request, Response,
-    Result, Status,
+    codegen::futures_core::Stream, transport::Server, Extensions, Request, Response, Result, Status,
 };
-use tracing::{info, log::warn};
+use tracing::{info, warn};
 
 // 最大消息长度
 const MAX_MESSAGE: usize = 1024;
 
 pub type ChatResult<T> = Result<Response<T>, Status>;
+pub type StatusResult<T> = Result<T, Status>;
 pub struct ChatService {
     // 广播
     tx: broadcast::Sender<ChatMessage>,
@@ -37,12 +37,14 @@ impl Chat for ChatService {
         request: Request<NewChatMessage>,
     ) -> ChatResult<SendMessageResponse> {
         // how to get sender, from request or from token?`如何从请求或令牌中获取发送者？
-        let sender = "todo!()";
+        let sender = get_username(request.extensions())?;
         let info = request.into_inner();
         let message = info.into_chat_message(sender);
 
         // store it to the server storage`存储到服务器存储
         // publish message to everyone who interested in it`向所有对此感兴趣的人发布消息`
+        self.tx.send(message).unwrap();
+
         Ok(Response::new(SendMessageResponse {}))
     }
 
@@ -80,9 +82,13 @@ impl Default for ChatService {
 }
 
 pub async fn start() {
+    // inner: 客户端或服务器
+    // with_interceptor是一个函数，用于为gRPC inner 添加拦截器。
+    // 它接受一个 inner ，拦截器作为参数，并返回一个新的 inner
+    // 该 inner 将使用提供的拦截器来处理所有传入和传出的请求和响应
     let svc = ChatServer::with_interceptor(ChatService::default(), check_auth);
 
-    let addr = "0.0.0.0".parse().unwrap();
+    let addr = "0.0.0.0:8000".parse().unwrap();
     info!("listening on http://{addr}");
 
     Server::builder()
@@ -92,8 +98,9 @@ pub async fn start() {
         .unwrap();
 }
 
-fn check_auth(req: Request<()>) -> Result<Request<()>, Status> {
-    // 通过调用metadata从Header中获取token, 如果没有token, 返回unauthenticated错误
+// gRPC拦截器，用于添加，删除 MetadataMap 选项
+fn check_auth(mut req: Request<()>) -> Result<Request<()>, Status> {
+    // 通过调用 metadata() 从 Header 中获取 token, 如果没有 token, 返回 unauthenticated 错误
     let token = match req.metadata().get("authorization") {
         Some(v) => {
             let token_str = v.to_str().map_err(|_| {
@@ -102,10 +109,23 @@ fn check_auth(req: Request<()>) -> Result<Request<()>, Status> {
                     "Invalid token format`令牌格式无效".to_string(),
                 )
             })?;
-            let token = Token::new(token_str.strip_prefix("Bearer ").unwrap());
-            let username = token.into_usernmae();
+            Token::new(token_str.strip_prefix("Bearer ").unwrap())
         }
-        None => return Err(Status::unauthenticated("missing token")),
+        None => Token::default(),
     };
-    todo!()
+
+    req.extensions_mut().insert(token);
+    Ok(req)
+}
+
+fn get_username(ext: &Extensions) -> StatusResult<String> {
+    let token = ext
+        .get::<Token>()
+        .ok_or(Status::unauthenticated("No token"))?;
+
+    if token.is_valid() {
+        Ok(token.into_usernmae())
+    } else {
+        Err(Status::unauthenticated("Invalid token"))
+    }
 }

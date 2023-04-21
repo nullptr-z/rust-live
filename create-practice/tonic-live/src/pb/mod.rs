@@ -23,6 +23,15 @@ impl Token {
     pub fn new(data: impl Into<String>) -> Self {
         Self { data: data.into() }
     }
+
+    // TODO: use jwt for decode token
+    pub fn into_usernmae(&self) -> String {
+        self.data.clone()
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.data.len() > 0
+    }
 }
 
 impl NewChatMessage {
@@ -51,5 +60,11 @@ impl ChatMessage {
             content: content.into(),
             timestamp,
         }
+    }
+}
+
+impl GetMessageRequest {
+    pub fn new() -> Self {
+        Self {}
     }
 }
