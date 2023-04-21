@@ -11,7 +11,11 @@ use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
 use std::{ops::Deref, sync::Arc};
-use tonic::{codegen::InterceptedService, service::Interceptor, transport::Channel};
+use tonic::{
+    codegen::InterceptedService, metadata::AsciiMetadataValue, service::Interceptor,
+    transport::Channel,
+};
+use tracing::info;
 
 lazy_static! {
     // ArcSwap是一种无锁同步原语,它提供了一种在无锁的情况下原子地替换共享变量值的方式，而不需要全局锁或其他形式的同步
@@ -49,7 +53,7 @@ impl Rooms {
 }
 
 impl Client {
-    pub async fn connect_server(username: String) -> Self {
+    pub async fn new(username: String) -> Self {
         // 创建一个链接到服务端的服务
         let channel = Channel::from_static("http://[127.0.0.1]:8000")
             .connect()
@@ -94,6 +98,7 @@ impl Client {
         let rooms = self.rooms.clone();
         tokio::spawn(async move {
             while let Some(msg) = stream.message().await? {
+                info!("got message {msg:?}");
                 rooms.insert_message(msg);
             }
             Ok::<_, tonic::Status>(())
@@ -106,7 +111,16 @@ impl Client {
 struct AuthInterceptor;
 
 impl Interceptor for AuthInterceptor {
-    fn call(&mut self, _request: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
-        todo!()
+    // 每次请求都通过call发起
+    fn call(&mut self, mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
+        // 每当发起请求时，都会从 ArcSwap 中获取 token
+        // 封装成 metadata，添加到 Headers 请求头中
+        // server 会从请求头中获取 token，进行验证：check_auth 方法
+        let token = TOKEN.load();
+        if token.is_valid() {
+            let value = format!("Bearer {}", token.data).try_into().unwrap();
+            req.metadata_mut().insert("authorization", value);
+        }
+        Ok(req)
     }
 }

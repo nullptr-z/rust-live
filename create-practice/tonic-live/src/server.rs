@@ -64,6 +64,7 @@ impl Chat for ChatService {
             while let Ok(msg) = rx.recv().await {
                 if let Err(_) = sender.send(Ok(msg)) {
                     warn!("Failed to send. Sender might be closed.");
+                    return;
                 }
             }
         });

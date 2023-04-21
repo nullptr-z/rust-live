@@ -1,6 +1,6 @@
 
 
-在webasockt中，我们需要使用到一个库，这个库是axum-ws，这个库是axum的一个扩展，用于处理websocket的请求。
+在websocket中，我们需要使用到一个库，这个库是axum-ws，这个库是axum的一个扩展，用于处理websocket的请求。
 
 
 ## demo 使用指南
