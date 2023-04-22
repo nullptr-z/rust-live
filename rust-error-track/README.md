@@ -11,3 +11,7 @@
 > error[E0698]: type inside `async` block must be known in this context
 `` 错误[E0698]：此上下文中的“async”块内部的类型必须是已知的
 -- 在 async 代码块中使用了一个未知的类型
+
+> error: cannot find macro `anyhow` in this scope
+`` 错误：在此范围内找不到宏“anyhow”
+-- 没有引入 anyhow 库

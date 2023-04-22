@@ -7,8 +7,8 @@ const KEY_PEM: &str = include_str!("../fixtures/key.pem");
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 创建服务器地址
-    let addr = "127.0.0.1:4433";
+    // 创建服务器地址，0.0.0.0:4433表示监听本机的 4433 端口
+    let addr = "0.0.0.0:4433";
     // 使用 Server::builder() 方法创建服务器，并配置证书和私钥，同时使用 with_io 方法指定服务器地址和端口
     let mut server = Server::builder()
         .with_tls((CERT_PEM, KEY_PEM))?
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 
         // 为每个连接创建一个线程,从中读取 stream
         tokio::spawn(async move {
-            // 不断从连接池中取出 stream，直到连接关闭
+            // 不断从连接池中取出一个双向流 stream，直到连接关闭
             while let Some(mut stream) = conn.accept_bidirectional_stream().await? {
                 println!(
                     "accept a stream from {}",
