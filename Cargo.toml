@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
+# 子目录可以在他自己的 Cargo.toml 文件中加入一个空 [workspace] 指明他不属于这个 workspace; 例如 quic-protocol-live 这个 create
 [workspace]
 members = [
   "create-practice/prost-live",
@@ -13,6 +13,7 @@ members = [
   "create-practice/axum-ws-live",
   # "create-practice/dioxus-live",
   "create-practice/tonic-live",
+  "create-practice/quic-protocol-live",
 ]
 
 [dependencies]
