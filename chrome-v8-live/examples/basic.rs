@@ -1,5 +1,5 @@
 // use serde::{Deserialize, Serialize};
-use v8::{CreateParams, HandleScope, Isolate};
+use v8::HandleScope;
 
 // #[derive(Debug, Serialize, Deserialize)]
 // pub struct Data {
@@ -8,15 +8,14 @@ use v8::{CreateParams, HandleScope, Isolate};
 // }
 
 fn main() {
+    // init
     init();
-    // create an isolate
-    let params = CreateParams::default();
-    println!("【 params 】==> {:?}", params);
-    let mut isolate = Isolate::new(params);
-    println!("2222222");
+
+    // create isolate
+    let isolate = &mut v8::Isolate::new(Default::default());
 
     // create handel scope
-    let handle_scope = &mut HandleScope::new(&mut isolate);
+    let handle_scope = &mut HandleScope::new(isolate);
     // create context
     let context = v8::Context::new(handle_scope);
     // enter context scope
@@ -24,19 +23,21 @@ fn main() {
 
     // javascript code
     let source = r#"
-        function hello(){
-            return "Hello"
+        function add(a, b){
+            return a + b
         }
-        hello();
+        add(1,2);
       "#;
     println!("【 result 】==>");
 
+    // js源代码转换成v8源代码
     let source = v8::String::new(context_scope, source).unwrap();
-
+    // compile编译v8源代码
     let script = v8::Script::compile(context_scope, source, None).unwrap();
-
+    // 运行代码
     let result = script.run(context_scope).unwrap();
-    let value: String = serde_v8::from_v8(context_scope, result).unwrap();
+    // 将运行结果转换成json，这样比较容易得到一个我们没有定义的结构体
+    let value: serde_json::Value = serde_v8::from_v8(context_scope, result).unwrap();
     println!("【 value 】==> {:?}", value);
 }
 
@@ -46,4 +47,5 @@ fn init() {
     // make_shared  为什么要用这个？因为需要一个shared_ptr, shared_ptr是一个智能指针，它会自动释放内存
     let platform = v8::new_default_platform(0, false).make_shared();
     v8::V8::initialize_platform(platform);
+    v8::V8::initialize();
 }

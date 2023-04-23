@@ -343,7 +343,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_v8",
- "v8 0.44.3",
+ "v8",
 ]
 
 [[package]]
@@ -388,6 +388,12 @@ checksum = "62ec6771ecfa0762d24683ee5a32ad78487a3d3afdc0fb8cae19d2c5deb50b7c"
 dependencies = [
  "crossbeam-utils",
 ]
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "core-foundation-sys"
@@ -533,6 +539,19 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+]
+
+[[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1508,6 +1527,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -2300,13 +2320,17 @@ dependencies = [
 
 [[package]]
 name = "serde_v8"
-version = "0.37.0"
+version = "0.91.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c83878134590f4d50ceb03f257dbd01646ffe675e8022bcd980365c3f20028d5"
+checksum = "fac73d1b5fabb8c9e1f44533520d1d14434f462b2c29ba21c30cb544a1c8181d"
 dependencies = [
+ "bytes",
+ "derive_more",
+ "num-bigint",
  "serde",
  "serde_bytes",
- "v8 0.41.0",
+ "smallvec",
+ "v8",
 ]
 
 [[package]]
@@ -2913,27 +2937,13 @@ checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "v8"
-version = "0.41.0"
+version = "0.68.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9c3d267007e1f137d79b4da64267139a86034a4d85df4964334979c1c7a708a"
+checksum = "81c69410b7435f1b74e82e243ba906d71e8b9bb350828291418b9311dbd77222"
 dependencies = [
  "bitflags",
  "fslock",
  "lazy_static",
- "libc",
- "which",
-]
-
-[[package]]
-name = "v8"
-version = "0.44.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3f92c29dd66c7342443280695afc5bb79d773c3aa3eb02978cf24f058ae2b3d"
-dependencies = [
- "bitflags",
- "fslock",
- "lazy_static",
- "libc",
  "which",
 ]
 
