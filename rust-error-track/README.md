@@ -15,3 +15,8 @@
 > error: cannot find macro `anyhow` in this scope
 `` 错误：在此范围内找不到宏“anyhow”
 -- 没有引入 anyhow 库
+
+> the trait bound `*` is not satisfied
+`` 不满足 Trait 绑定限制
+-- 给定参数没有实现相关 Trait
+-- 使用了错误的同名create
