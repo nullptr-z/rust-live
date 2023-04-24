@@ -28,7 +28,6 @@ fn main() {
         }
         add(1,2);
       "#;
-    println!("【 result 】==>");
 
     // js源代码转换成v8源代码
     let source = v8::String::new(context_scope, source).unwrap();

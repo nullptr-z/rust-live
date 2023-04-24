@@ -7,10 +7,11 @@ fn main() {
 
     let code = r#"
         function hello(){
+            print("Hello ","World","我的天那");
             return {r1:"Hello", r2: "World"}
         }
         hello();
       "#;
     let result = runtime.execute_script(code);
-    println!("【 result 】==> {:?}", result);
+    println!("\n\nexecute_script result: {:?}", result);
 }

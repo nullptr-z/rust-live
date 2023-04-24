@@ -1,7 +1,11 @@
+mod extensions;
 mod state;
+mod utils;
 
+use extensions::Extensions;
 use state::JsRuntimeState;
-use v8::{CreateParams, HandleScope, Isolate, Local, OwnedIsolate, Script, TryCatch, V8};
+use utils::execute_script;
+use v8::{CreateParams, HandleScope, OwnedIsolate, V8};
 
 type LocalValue<'a> = v8::Local<'a, v8::Value>;
 
@@ -14,7 +18,7 @@ pub struct JsRuntime {
 pub struct JsRuntimeParams(CreateParams);
 
 impl JsRuntimeParams {
-    pub fn new(snapshot: Option<Vec<u8>>) -> Self {
+    pub fn new(_snapshot: Option<Vec<u8>>) -> Self {
         JsRuntimeParams(Default::default())
     }
 
@@ -58,22 +62,13 @@ impl JsRuntime {
     fn init_isolate(mut isolate: OwnedIsolate) -> Self {
         let state = JsRuntimeState::new(&mut isolate);
         isolate.set_slot(state);
+        {
+            // 从 GlobalState 中获取 context
+            let context = JsRuntimeState::get_context(&mut isolate);
+            // 获取 scope, 用于创建 v8::object
+            let handle_scope = &mut HandleScope::with_context(&mut isolate, context);
+            Extensions::install(handle_scope);
+        }
         Self { isolate }
     }
-}
-
-fn execute_script<'a>(
-    scope: &mut HandleScope<'a>,
-    code: impl AsRef<str>,
-) -> Result<LocalValue<'a>, LocalValue<'a>> {
-    let scope = &mut TryCatch::new(scope);
-    // js源代码转换成v8源代码
-    let source = v8::String::new(scope, code.as_ref()).unwrap();
-    // compile编译v8源代码
-    Script::compile(scope, source, None)
-        // 运行代码
-        .and_then(|script| script.run(scope))
-        // 返回运行结果
-        // 返回Ok是简写了，完整代码是`|value| Ok(value)`
-        .map_or_else(|| Err(scope.stack_trace()).unwrap(), Ok)
 }
