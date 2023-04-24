@@ -7,8 +7,8 @@ fn main() {
 
     let code = r#"
         function hello(){
-            print("Hello ","World","我的天那");
-            return {r1:"Hello", r2: "World"}
+            print({a:"Hello ",b:"World",c:"我的天那"});
+            return fetch("https://www.rust-lang.org/");
         }
         hello();
       "#;

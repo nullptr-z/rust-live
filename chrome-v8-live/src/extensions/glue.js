@@ -1,8 +1,11 @@
 "use strict";
 
-({ print }) => {
-  globalThis.print = (...args) => {
-    console.log("【 args 】==>", args);
-    print(Object(args))
-  }
+({ print, fetch }) => {
+  globalThis.print = (args) => {
+    return print(args)
+  };
+
+  globalThis.fetch = (args) => {
+    return fetch(args)
+  };
 }
