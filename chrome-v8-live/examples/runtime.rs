@@ -4,7 +4,7 @@ fn main() {
     JsRuntime::init();
     JsRuntime::init();
     // new Isolate
-    let mut runtime = JsRuntime::new(Default::default());
+    let mut runtime = JsRuntime::new(None);
 
     let code = r#"
         function hello(){

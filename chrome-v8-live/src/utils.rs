@@ -1,6 +1,4 @@
-use std::result;
-
-use v8::{script_compiler, HandleScope, Local, Promise, Script, ScriptOrigin, TryCatch};
+use v8::{HandleScope, Local, Script, ScriptOrigin, TryCatch};
 
 use crate::LocalValue;
 

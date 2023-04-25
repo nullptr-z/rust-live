@@ -19,8 +19,12 @@ pub struct JsRuntime {
 pub struct JsRuntimeParams(CreateParams);
 
 impl JsRuntimeParams {
-    pub fn new(_snapshot: Option<Vec<u8>>) -> Self {
-        JsRuntimeParams(Default::default())
+    pub fn new(snapshot: Option<Vec<u8>>) -> Self {
+        let mut params = CreateParams::default();
+        if let Some(snapshot) = snapshot {
+            params = params.snapshot_blob(snapshot);
+        }
+        JsRuntimeParams(params)
     }
 
     pub fn into_inner(self) -> CreateParams {
@@ -43,9 +47,15 @@ impl JsRuntime {
         });
     }
 
-    pub fn new(params: CreateParams) -> Self {
+    pub fn new(snapshot: Option<Vec<u8>>) -> Self {
+        let mut params = CreateParams::default().external_references(&**EXTERNAL_REFERENCES);
+        let mut initialized = false;
+        if let Some(snapshot) = snapshot {
+            params = params.snapshot_blob(snapshot);
+            initialized = true;
+        }
         let isolate = v8::Isolate::new(params);
-        Self::init_isolate(isolate)
+        Self::init_isolate(isolate, initialized)
     }
 
     pub fn execute_script(
@@ -68,7 +78,7 @@ impl JsRuntime {
     /// 当应用程序启动时，V8 引擎会首先读取 snapshot 文件，并使用其中保存的数据来初始化一部分运行时环境，例如对象、函数、内置类型等。这样可以避免在运行时重新编译和解析代码的过程，加快了应用程序的启动速度。同时，由于一些数据已经被编译为机器码，并保存在 snapshot 文件中，这也减少了应用程序的内存占用。
     pub fn create_snapshot() -> Vec<u8> {
         let isolate: OwnedIsolate = Isolate::snapshot_creator(None);
-        let mut runtime: JsRuntime = JsRuntime::init_isolate(isolate);
+        let mut runtime: JsRuntime = JsRuntime::init_isolate(isolate, false);
 
         let mut isolate = Isolate::snapshot_creator(Some(&EXTERNAL_REFERENCES));
         {
@@ -88,10 +98,10 @@ impl JsRuntime {
         }
     }
 
-    fn init_isolate(mut isolate: OwnedIsolate) -> Self {
+    fn init_isolate(mut isolate: OwnedIsolate, initialized: bool) -> Self {
         let state = JsRuntimeState::new(&mut isolate);
         isolate.set_slot(state);
-        {
+        if !initialized {
             // 从 GlobalState 中获取 context
             let context = JsRuntimeState::get_context(&mut isolate);
             // 获取 scope, 用于创建 v8::object
