@@ -24,11 +24,14 @@ impl Extensions {
         let name = v8::String::new(scope, "fetch").unwrap();
         bindings.set(scope, name.into(), fetch_func.into()).unwrap();
 
-        if let Ok(result) = execute_script(scope, GLUE) {
+        // 将 bindings 对象传入到 glue.js 中
+        if let Ok(result) = execute_script(scope, GLUE, false) {
+            // 从 result 提取函数对象，然后调用
             let func = v8::Local::<v8::Function>::try_from(result).unwrap();
             let recv = v8::undefined(scope).into();
+            // bindings 中存储了所有的扩展函数和函数名，参数会传入对应的函数中
             let args = vec![bindings.into()];
-            // recv 表示函数的接收者（即 this 对象）
+            // recv 表示函数的接收者（即 this 对象）s
             func.call(scope, recv, &args).unwrap();
         }
     }

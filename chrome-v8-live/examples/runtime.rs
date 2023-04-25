@@ -2,6 +2,7 @@ use chrome_v8_live::JsRuntime;
 
 fn main() {
     JsRuntime::init();
+    JsRuntime::init();
     // new Isolate
     let mut runtime = JsRuntime::new(Default::default());
 
@@ -12,6 +13,6 @@ fn main() {
         }
         hello();
       "#;
-    let result = runtime.execute_script(code);
+    let result = runtime.execute_script(code, true);
     println!("\n\nexecute_script result: {:?}", result);
 }
