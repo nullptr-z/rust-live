@@ -2,11 +2,11 @@ mod extensions;
 mod state;
 mod utils;
 
-use extensions::Extensions;
+use extensions::{Extensions, EXTERNAL_REFERENCES};
 use once_cell::sync::OnceCell;
 use state::JsRuntimeState;
 use utils::execute_script;
-use v8::{CreateParams, HandleScope, OwnedIsolate, V8};
+use v8::{CreateParams, HandleScope, Isolate, OwnedIsolate, V8};
 
 type LocalValue<'a> = v8::Local<'a, v8::Value>;
 
@@ -66,8 +66,26 @@ impl JsRuntime {
     /// 在 Chrome V8 引擎中，snapshot 是一种用于加快启动时间和减少内存占用的技术。它可以将一部分 V8 引擎的代码和数据事先编译好并保存到一个文件中，然后在应用程序启动时加载该文件，从而避免了在运行时重新编译和解析代码的过程，减少了启动时间和内存占用。
     /// 具体来说，snapshot 是一种序列化的数据格式，它包含了编译好的 JavaScript 代码、编译器的中间代码、静态数据和运行时的状态信息等。这些数据可以通过 V8 引擎的内置函数进行创建和序列化，生成的文件可以保存到磁盘上，供应用程序启动时加载。
     /// 当应用程序启动时，V8 引擎会首先读取 snapshot 文件，并使用其中保存的数据来初始化一部分运行时环境，例如对象、函数、内置类型等。这样可以避免在运行时重新编译和解析代码的过程，加快了应用程序的启动速度。同时，由于一些数据已经被编译为机器码，并保存在 snapshot 文件中，这也减少了应用程序的内存占用。
-    pub fn create_snapshot(&mut self) -> Vec<u8> {
-        todo!()
+    pub fn create_snapshot() -> Vec<u8> {
+        let isolate: OwnedIsolate = Isolate::snapshot_creator(None);
+        let mut runtime: JsRuntime = JsRuntime::init_isolate(isolate);
+
+        let mut isolate = Isolate::snapshot_creator(Some(&EXTERNAL_REFERENCES));
+        {
+            let context = JsRuntimeState::get_context(&mut runtime.isolate);
+            let handle_scope = &mut HandleScope::new(&mut runtime.isolate);
+            // let handle_scope = &mut HandleScope::with_context(&mut runtime.isolate, context);
+            let context = v8::Local::new(handle_scope, context);
+            isolate.set_default_context(context);
+            println!("=======================");
+        }
+        JsRuntimeState::drop_context(&mut runtime.isolate);
+        std::mem::forget(runtime);
+
+        match isolate.create_blob(v8::FunctionCodeHandling::Keep) {
+            Some(blob) => blob.to_vec(),
+            None => panic!("Failed to create snapshot"),
+        }
     }
 
     fn init_isolate(mut isolate: OwnedIsolate) -> Self {
