@@ -15,6 +15,7 @@ members = [
   "create-practice/tonic-live",
   "create-practice/quic-protocol-live",
   "chrome-v8-live",
+  "deno-core-live",
 ]
 
 [dependencies]
