@@ -15,3 +15,6 @@ v8引擎的 Isolate 有一个 event loop，可以用来执行异步任务，但�
 
 ## load_main_module
 加载JavaScript 文件到内存中，它会被编译成一个 JavaScript 模块，接着实例化它，我们得到一个它的 module ID，然后在 Rust 中通过 mod_evaluate 执行这个模块。
+
+## execute_script
+执行一段非模块的 JavaScript 代码

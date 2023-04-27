@@ -1,8 +1,9 @@
 
 async function hello() {
-
-  Deno.core.print("Hello world");
-
+  return new Promise((resolve, _reject) => {
+    Deno.core.print("Hello Js");
+    resolve("Hello Rust")
+  });
 }
 
-await hello();
+hello();
