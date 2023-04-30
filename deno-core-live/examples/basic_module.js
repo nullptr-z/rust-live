@@ -1,6 +1,8 @@
+import { print } from './base.js'
+
 async function hello() {
-  return new Promise((resolve, reject) => {
-    Deno.core.print("Hello world");
+  return new Promise((resolve) => {
+    print("Hello world");
     resolve("Hello rust");
   });
 }
