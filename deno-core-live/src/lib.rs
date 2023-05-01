@@ -33,15 +33,17 @@ pub async fn execute_main_module(rt: &mut JsRuntime, path: impl AsRef<str>) -> R
     let id = rt.load_main_module(&url, None).await?;
     // @2 执行模块
     let mut received = rt.mod_evaluate(id);
-    tokio::select! {
-        resolved = &mut received=>{
-            resolved.expect("failed to evaluate module`无法评估模块")?;
-        }
     // @3 执行事件循环
-        _=rt.run_event_loop(false)=>{
-            received.await.expect("failed to rvaluate module")?;
-        }
-    };
+    loop {
+        tokio::select! {
+            resolved = &mut received=>{
+               return resolved.expect("failed to evaluate module`无法评估模块");
+            }
+            _=rt.run_event_loop(false)=>{
+                // received.await.expect("failed to rvaluate module")?;
+            }
+        };
+    }
 
     Ok(())
 }

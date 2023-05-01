@@ -24,6 +24,26 @@ pub struct FetchResponse {
     body: Option<ZeroCopyBuf>,
 }
 
+// ops: @1
+pub fn init() -> Extension {
+    let file = include_js_files!(
+        prefix ".",
+        "fetch.js",
+    );
+
+    Extension::builder()
+        .js(file)
+        // ops 里可以注册一些自定义的函数
+        .ops(vec![op_fetch::decl(), op_decode_utf8::decl()])
+        // state里面可以放一些全局的状态
+        // 这里创建了 reqwest::Client 对象
+        .state(move |state| {
+            state.put::<reqwest::Client>(reqwest::Client::new());
+            Ok(())
+        })
+        .build()
+}
+
 // ops: @2
 #[op]
 async fn op_fetch(state: Rc<RefCell<OpState>>, args: FetchArgs) -> Result<FetchResponse, AnyError> {
@@ -68,22 +88,9 @@ async fn op_fetch(state: Rc<RefCell<OpState>>, args: FetchArgs) -> Result<FetchR
     })
 }
 
-// ops: @1
-pub fn init() -> Extension {
-    let file = include_js_files!(
-        prefix ".",
-        "fetch.js",
-    );
-
-    Extension::builder()
-        .js(file)
-        // ops 里可以注册一些自定义的函数
-        .ops(vec![op_fetch::decl()])
-        // state里面可以放一些全局的状态
-        // 这里创建了 reqwest::Client 对象
-        .state(move |state| {
-            state.put::<reqwest::Client>(reqwest::Client::new());
-            Ok(())
-        })
-        .build()
+#[op]
+fn op_decode_utf8(buf: ZeroCopyBuf) -> Result<String, AnyError> {
+    let buf = &*buf;
+    // from_utf8_lossy: 将字节流转换为字符串, 如果遇到非法的字节, 则用 � 替代, 而不是 panic
+    Ok(String::from_utf8_lossy(buf).into())
 }
