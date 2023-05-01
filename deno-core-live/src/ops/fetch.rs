@@ -5,7 +5,8 @@ use deno_core::{
     ByteString, Extension, OpState, ZeroCopyBuf,
 };
 use reqwest::{Method, Url};
-use std::{cell::RefCell, rc::Rc, str::FromStr};
+use serde::de::DeserializeOwned;
+use std::{cell::RefCell, ops::Deref, rc::Rc, str::FromStr};
 
 #[derive(Deserialize)]
 #[serde[rename_all="camelCase"]]
@@ -34,7 +35,10 @@ pub fn init() -> Extension {
     Extension::builder()
         .js(file)
         // ops 里可以注册一些自定义的函数
-        .ops(vec![op_fetch::decl(), op_decode_utf8::decl()])
+        .ops(vec![
+            op_fetch::decl(),
+            op_decode_utf8::decl::<ZeroCopyBuf>(),
+        ])
         // state里面可以放一些全局的状态
         // 这里创建了 reqwest::Client 对象
         .state(move |state| {
@@ -88,8 +92,12 @@ async fn op_fetch(state: Rc<RefCell<OpState>>, args: FetchArgs) -> Result<FetchR
     })
 }
 
+/// 在单元测试时使用 [u8] 作为比 ZeroCopyBuf 更方便, 所以这里把他写出泛型
 #[op]
-fn op_decode_utf8(buf: ZeroCopyBuf) -> Result<String, AnyError> {
+fn op_decode_utf8<T>(buf: T) -> Result<String, AnyError>
+where
+    T: DeserializeOwned + Deref<Target = [u8]>,
+{
     let buf = &*buf;
     // from_utf8_lossy: 将字节流转换为字符串, 如果遇到非法的字节, 则用 � 替代, 而不是 panic
     Ok(String::from_utf8_lossy(buf).into())
