@@ -16,6 +16,7 @@ members = [
   "create-practice/quic-protocol-live",
   "chrome-v8-live",
   # "deno-core-live",
+  "macros/proc-macros"
 ]
 
 [dependencies]
