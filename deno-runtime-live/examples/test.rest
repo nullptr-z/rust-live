@@ -1,1 +1,14 @@
 GET http://127.0.0.1:1447
+
+### get todo
+GET http://127.0.0.1:1447/todo
+Accept: application/json
+
+### post todo
+POST http://127.0.0.1:1447/todo
+Accept: application/json
+Content-Type: application/json
+
+{
+  "title": "deno runtime live"
+}

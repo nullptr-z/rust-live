@@ -1,9 +1,12 @@
-import * as Drash from "https://deno.land/x/drash@v2.7.1/mod.ts";
+/// 运行： deno run --allow-net app.ts
+
+
+import * as Drash from "https://deno.land/x/drash@v2.6.0/mod.ts";
 
 class HomeResource extends Drash.Resource {
   public paths = ["/"];
 
-  public GET(request: Drash.Request, response: Drash.Response): void {
+  public GET(_request: Drash.Request, response: Drash.Response): void {
     return response.json({
       hello: "world",
       time: new Date(),
@@ -11,13 +14,31 @@ class HomeResource extends Drash.Resource {
   }
 }
 
+let todo: any[] = []
+class TodoResource extends Drash.Resource {
+  public paths = ["/todo"];
+
+  public GET(_request: Drash.Request, response: Drash.Response): void {
+    return response.json({ todo });
+  }
+
+  public POST(request: Drash.Request, response: Drash.Response): void {
+
+    console.log("%c 🎉 request:", "font-size:22px;background-color:rgb(205, 209, 211);color:#fff;", request);
+
+    const todoItem: any = request.bodyAll()
+    todo.push({ id: todo.length, ...todoItem })
+    return response.json({ status: 200, todoLen: todo.length })
+  }
+}
+
 // Create and run your server
 
 const server = new Drash.Server({
-  hostname: "127.0.0.1",
+  hostname: "0.0.0.0",
   port: 1447,
   protocol: "http",
-  resources: [HomeResource],
+  resources: [HomeResource, TodoResource],
 });
 
 server.run();

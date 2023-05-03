@@ -8,8 +8,16 @@ use deno_runtime::{
 };
 use deno_runtime_live::MainWorkerOptions;
 
-#[tokio::main]
-async fn main() -> Result<(), AnyError> {
+fn main() -> Result<(), AnyError> {
+    // 从文件加载js代码
+    // let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/js/hello_runtime.js");
+    let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/js/app.js");
+    let main_module = resolve_path(
+        &js_path.to_string_lossy(),
+        &std::env::current_dir().context("Unable to get CWD`无法获取当前工作目")?,
+    )?;
+
+    // - 这里开始是 deno_runtime 的核心设置代码
     let mut options = MainWorkerOptions::default();
     // 禁用一些 runtime 提供的 ops 功能
     let disable_extension = Extension::builder("my_ext")
@@ -20,14 +28,6 @@ async fn main() -> Result<(), AnyError> {
         })
         .build();
     options.extensions.push(disable_extension);
-
-    // 从文件加载js代码
-    // let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/js/hello_runtime.js");
-    let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/js/app.js");
-    let main_module = resolve_path(
-        &js_path.to_string_lossy(),
-        &std::env::current_dir().context("Unable to get CWD`无法获取当前工作目")?,
-    )?;
 
     // 程序的许多功能和操作都需要获取特定的权限，例如读取文件、网络通信、运行 Web Worker 等等。
     // 为了保障程序的安全性和可靠性，Deno 引入了权限机制，允许程序根据需要获取或放弃各种权限。
@@ -40,12 +40,13 @@ async fn main() -> Result<(), AnyError> {
         ..Default::default()
     });
 
+    // 创建一个单线程的异步运行时，也可以创建一个新的线程运行整个 Worker，因为 Isolate只能在一个线程中运行
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
+        .max_blocking_threads(32) // 设置最大的阻塞线程数，在这里代表了最大 Worker 的数量
         .build()
         .unwrap();
-
-    // 在当前线程中运行这个异步任务(Future), 也可以创建一个新的线程运行整个 Worker，因为 Isolate只能在当前线程中运行
+    // 在当前线程中运行这个异步任务(Future),
     let future = async move {
         let mut worker = MainWorker::bootstrap_from_options(
             main_module.clone(),
