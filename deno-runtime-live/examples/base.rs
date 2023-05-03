@@ -22,7 +22,8 @@ async fn main() -> Result<(), AnyError> {
     options.extensions.push(disable_extension);
 
     // 从文件加载js代码
-    let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/hello_runtime.js");
+    // let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/js/hello_runtime.js");
+    let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/js/app.js");
     let main_module = resolve_path(
         &js_path.to_string_lossy(),
         &std::env::current_dir().context("Unable to get CWD`无法获取当前工作目")?,
@@ -38,11 +39,27 @@ async fn main() -> Result<(), AnyError> {
         net: Permissions::new_net(&Some(vec![]), false).unwrap(),
         ..Default::default()
     });
-    let mut worker =
-        MainWorker::bootstrap_from_options(main_module.clone(), permissions, options.into_inner());
-    // 传递的参数为 false，则事件循环不会自动退出，需要在代码中手动调用 worker.terminate() 方法来终止循环
-    worker.execute_main_module(&main_module).await?;
-    worker.run_event_loop(false).await?;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    // 在当前线程中运行这个异步任务(Future), 也可以创建一个新的线程运行整个 Worker，因为 Isolate只能在当前线程中运行
+    let future = async move {
+        let mut worker = MainWorker::bootstrap_from_options(
+            main_module.clone(),
+            permissions,
+            options.into_inner(),
+        );
+        // 传递的参数为 false，则事件循环不会自动退出，需要在代码中手动调用 worker.terminate() 方法来终止循环
+        worker.execute_main_module(&main_module).await?;
+        worker.run_event_loop(false).await?;
+
+        Ok::<_, AnyError>(())
+    };
+    let local = tokio::task::LocalSet::new();
+    local.block_on(&rt, future)?;
 
     Ok(())
 }
