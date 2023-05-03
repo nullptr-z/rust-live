@@ -13,7 +13,7 @@ pub fn execute_script<'a>(
     let source = v8::String::new(scope, code.as_ref()).unwrap();
     // create origin
     // let origin = crete_origin(scope, "dummy.rs", true);
-    // 作为一个模块 module 引入并编译，需要使用 compile_module 编译
+    // ------------作为一个模块 module 引入并编译，需要使用 compile_module 编译-------------
     // if is_module {
     //     let source = script_compiler::Source::new(source, Some(&origin));
     //     let module = script_compiler::compile_module(scope, source).unwrap();
@@ -27,6 +27,7 @@ pub fn execute_script<'a>(
     //         v8::PromiseState::Fulfilled => Ok(promise.result(scope)),
     //         v8::PromiseState::Rejected => Err(promise.result(scope)),
     //     }
+    // ----------------------------------------------------------------------------------
     // } else {
     // 作为独立的文件并编译。没有global对象，使用 compile 编译
     // compile编译v8源代码
