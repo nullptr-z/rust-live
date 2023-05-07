@@ -44,6 +44,4 @@ pub async fn execute_main_module(rt: &mut JsRuntime, path: impl AsRef<str>) -> R
             }
         };
     }
-
-    Ok(())
 }

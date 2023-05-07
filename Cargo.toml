@@ -11,6 +11,7 @@ members = [
   "create-practice/prost-live",
   "create-practice/axum-live",
   "create-practice/axum-ws-live",
+  "create-practice/tokio-live",
   # "create-practice/dioxus-live",
   "create-practice/tonic-live",
   "create-practice/quic-protocol-live",
