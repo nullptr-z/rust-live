@@ -17,5 +17,6 @@ members = [
   "create-practice/quic-protocol-live",
   "chrome-v8-live",
   # "deno-core-live",
-  "macros/proc-macros"
+  "macros/proc-macros",
+  "sql-query-all"
 ]
