@@ -1,0 +1,213 @@
+[
+    Query(
+        Query {
+            with: None,
+            body: Select(
+                Select {
+                    distinct: None,
+                    top: None,
+                    projection: [
+                        ExprWithAlias {
+                            expr: Identifier(
+                                Ident {
+                                    value: "a",
+                                    quote_style: None,
+                                },
+                            ),
+                            alias: Ident {
+                                value: "a1",
+                                quote_style: None,
+                            },
+                        },
+                        UnnamedExpr(
+                            Identifier(
+                                Ident {
+                                    value: "b",
+                                    quote_style: None,
+                                },
+                            ),
+                        ),
+                        UnnamedExpr(
+                            Value(
+                                Number(
+                                    "123",
+                                    false,
+                                ),
+                            ),
+                        ),
+                        UnnamedExpr(
+                            Function(
+                                Function {
+                                    name: ObjectName(
+                                        [
+                                            Ident {
+                                                value: "myfun",
+                                                quote_style: None,
+                                            },
+                                        ],
+                                    ),
+                                    args: [
+                                        Unnamed(
+                                            Expr(
+                                                Identifier(
+                                                    Ident {
+                                                        value: "b",
+                                                        quote_style: None,
+                                                    },
+                                                ),
+                                            ),
+                                        ),
+                                    ],
+                                    over: None,
+                                    distinct: false,
+                                    special: false,
+                                    order_by: [],
+                                },
+                            ),
+                        ),
+                        Wildcard(
+                            WildcardAdditionalOptions {
+                                opt_exclude: None,
+                                opt_except: None,
+                                opt_rename: None,
+                                opt_replace: None,
+                            },
+                        ),
+                    ],
+                    into: None,
+                    from: [
+                        TableWithJoins {
+                            relation: Table {
+                                name: ObjectName(
+                                    [
+                                        Ident {
+                                            value: "data_source",
+                                            quote_style: None,
+                                        },
+                                    ],
+                                ),
+                                alias: None,
+                                args: None,
+                                with_hints: [],
+                            },
+                            joins: [],
+                        },
+                    ],
+                    lateral_views: [],
+                    selection: Some(
+                        BinaryOp {
+                            left: BinaryOp {
+                                left: BinaryOp {
+                                    left: Identifier(
+                                        Ident {
+                                            value: "a",
+                                            quote_style: None,
+                                        },
+                                    ),
+                                    op: Gt,
+                                    right: Identifier(
+                                        Ident {
+                                            value: "b",
+                                            quote_style: None,
+                                        },
+                                    ),
+                                },
+                                op: And,
+                                right: BinaryOp {
+                                    left: Identifier(
+                                        Ident {
+                                            value: "b",
+                                            quote_style: None,
+                                        },
+                                    ),
+                                    op: Lt,
+                                    right: Value(
+                                        Number(
+                                            "100",
+                                            false,
+                                        ),
+                                    ),
+                                },
+                            },
+                            op: And,
+                            right: Between {
+                                expr: Identifier(
+                                    Ident {
+                                        value: "c",
+                                        quote_style: None,
+                                    },
+                                ),
+                                negated: false,
+                                low: Value(
+                                    Number(
+                                        "10",
+                                        false,
+                                    ),
+                                ),
+                                high: Value(
+                                    Number(
+                                        "20",
+                                        false,
+                                    ),
+                                ),
+                            },
+                        },
+                    ),
+                    group_by: [],
+                    cluster_by: [],
+                    distribute_by: [],
+                    sort_by: [],
+                    having: None,
+                    named_window: [],
+                    qualify: None,
+                },
+            ),
+            order_by: [
+                OrderByExpr {
+                    expr: Identifier(
+                        Ident {
+                            value: "a",
+                            quote_style: None,
+                        },
+                    ),
+                    asc: Some(
+                        false,
+                    ),
+                    nulls_first: None,
+                },
+                OrderByExpr {
+                    expr: Identifier(
+                        Ident {
+                            value: "b",
+                            quote_style: None,
+                        },
+                    ),
+                    asc: None,
+                    nulls_first: None,
+                },
+            ],
+            limit: Some(
+                Value(
+                    Number(
+                        "50",
+                        false,
+                    ),
+                ),
+            ),
+            offset: Some(
+                Offset {
+                    value: Value(
+                        Number(
+                            "10",
+                            false,
+                        ),
+                    ),
+                    rows: None,
+                },
+            ),
+            fetch: None,
+            locks: [],
+        },
+    ),
+],
+
