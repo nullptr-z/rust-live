@@ -1,9 +1,10 @@
 use anyhow::{anyhow, Result};
 use polars::lazy::dsl::Expr;
-use sqlparser::ast::{Offset as SqlOffset, Select, SetExpr, Statement};
+use sqlparser::ast::{Offset as SqlOffset, Select, SetExpr, Statement, TableWithJoins};
 
 use crate::convert;
 
+#[derive(Debug, Default)]
 pub struct Sql {
     pub(crate) selection: Vec<Expr>,
     pub(crate) condition: Option<Expr>,
@@ -16,13 +17,37 @@ pub struct Sql {
 pub struct Offset(pub(crate) SqlOffset);
 
 impl From<Offset> for i64 {
-    fn from(ofs: Offset) -> Self {
-        match &ofs.0.value {
-            sqlparser::ast::Expr::Value(VType) => match VType {
+    fn from(from_val: Offset) -> Self {
+        match &from_val.0.value {
+            sqlparser::ast::Expr::Value(v_type) => match v_type {
                 sqlparser::ast::Value::Number(num, b) => num.parse::<i64>().unwrap(),
                 _ => 0,
             },
             _ => 0,
+        }
+    }
+}
+
+pub struct Source<'a>(pub(crate) &'a TableWithJoins);
+
+impl TryFrom<Source<'_>> for String {
+    type Error = anyhow::Error;
+
+    fn try_from(from_val: Source) -> Result<Self, Self::Error> {
+        match &from_val.0.relation {
+            sqlparser::ast::TableFactor::Table {
+                name,
+                alias,
+                args,
+                with_hints,
+            } => {
+                if name.0.len() != 1 {
+                    return Err(anyhow!("only support singe Table name"));
+                }
+
+                Ok(name.0[0].value.clone())
+            }
+            _ => Err(anyhow!("only support Table")),
         }
     }
 }
@@ -53,10 +78,15 @@ impl TryFrom<&Statement> for Sql {
                     _ => return Err(anyhow!("Only support Select Query at the moment")),
                 };
 
-                println!("【 from 】==> {:?}", from);
-                let offset: i64 = convert::Offset(q.offset.clone().unwrap()).into();
+                if q.offset.is_some() {
+                    let offset: i64 = convert::Offset(q.offset.clone().unwrap()).into();
+                }
+                let source = Source(&from[0]).try_into()?;
 
-                todo!()
+                let mut sql = Sql::default();
+                sql.source = source;
+
+                Ok(sql)
             }
             _ => return Err(anyhow!("Only support Query at the moment")),
         }

@@ -44,7 +44,7 @@ pub async fn query<T: AsRef<str>>(sql: T) -> Result<DataSet> {
     let ast = Parser::parse_sql(&SqlDialect::default(), sql.as_ref())?;
 
     if ast.len() != 1 {
-        return Err(anyhow!(""));
+        return Err(anyhow!("ast length greater than 1"));
     }
 
     let sql = &ast[0];
@@ -58,6 +58,7 @@ pub async fn query<T: AsRef<str>>(sql: T) -> Result<DataSet> {
     } = sql.try_into()?;
 
     info!("retrieving data form source: {source}");
+    println!("【 source 】==> {:?}", source);
 
     let ds = detect_content(retrieve_data(source).await?).load()?;
 
