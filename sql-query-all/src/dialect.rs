@@ -18,7 +18,7 @@ impl Dialect for SqlDialect {
     }
 }
 
-pub fn example_sql() -> String {
+fn example_sql() -> String {
     let url = "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/latest/owid-covid-latest.csv";
 
     let sql = format!(
