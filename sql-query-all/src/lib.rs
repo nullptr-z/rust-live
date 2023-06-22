@@ -58,7 +58,6 @@ pub async fn query<T: AsRef<str>>(sql: T) -> Result<DataSet> {
     } = sql.try_into()?;
 
     info!("retrieving data form source: {source}");
-    println!("【 source 】==> {:?}", source);
 
     let ds = detect_content(retrieve_data(source).await?).load()?;
 

@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use polars::lazy::dsl::Expr;
-use sqlparser::ast::{Offset as SqlOffset, Select, SetExpr, Statement, TableWithJoins};
+use sqlparser::ast::{
+    Expr as SqlExpr, Offset as SqlOffset, Select, SelectItem, SetExpr, Statement, TableWithJoins,
+};
 
 use crate::convert;
 
@@ -19,7 +21,7 @@ pub struct Offset(pub(crate) SqlOffset);
 impl From<Offset> for i64 {
     fn from(from_val: Offset) -> Self {
         match &from_val.0.value {
-            sqlparser::ast::Expr::Value(v_type) => match v_type {
+            SqlExpr::Value(v_type) => match v_type {
                 sqlparser::ast::Value::Number(num, b) => num.parse::<i64>().unwrap(),
                 _ => 0,
             },
@@ -48,6 +50,34 @@ impl TryFrom<Source<'_>> for String {
                 Ok(name.0[0].value.clone())
             }
             _ => Err(anyhow!("only support Table")),
+        }
+    }
+}
+
+pub struct ExprConvert(pub(crate) SqlExpr);
+impl TryFrom<ExprConvert> for String {
+    type Error = anyhow::Error;
+
+    fn try_from(from_val: ExprConvert) -> std::result::Result<Self, Self::Error> {
+        match from_val.0 {
+            SqlExpr::Identifier(ident) => Ok(ident.value),
+            _ => Err(anyhow!("Not supported yet")),
+        }
+    }
+}
+
+pub struct SelectItemConvert(pub(crate) SelectItem);
+impl TryFrom<SelectItemConvert> for String {
+    type Error = anyhow::Error;
+
+    fn try_from(from_val: SelectItemConvert) -> std::result::Result<Self, Self::Error> {
+        match from_val.0 {
+            SelectItem::UnnamedExpr(expr) => ExprConvert(expr).try_into(),
+            SelectItem::ExprWithAlias {
+                expr,
+                alias: _alias,
+            } => ExprConvert(expr).try_into(),
+            _ => Err(anyhow!("Invalidate SelectItem: {}", from_val.0)),
         }
     }
 }
