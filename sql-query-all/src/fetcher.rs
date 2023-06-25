@@ -14,7 +14,6 @@ pub async fn retrieve_data(source: impl Into<String>) -> Result<String> {
     let source = source.into();
 
     let typed = &source[..4];
-    println!("【 typed 】==> {:?}", typed);
     match typed {
         "file" => FileFetcher(source).fetch().await,
         // support http/https

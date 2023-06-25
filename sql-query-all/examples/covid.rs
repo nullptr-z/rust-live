@@ -1,14 +1,10 @@
 use anyhow::Result;
 use sql_query_all::query;
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // tracing_subscriber::fmt::init();
-    let _url = "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/latest/owid-covid-latest.csv";
+    let url = "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/latest/owid-covid-latest.csv";
 
     // 获取本地的文件
     let file_path = "owid-covid-latest.csv";
