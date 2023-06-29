@@ -18,5 +18,6 @@ members = [
   "chrome-v8-live",
   # "deno-core-live",
   "macros/proc-macros",
+  "kv-server",
   "sql-query-all"
 ]

@@ -39,4 +39,4 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-// 简化使用Prost的库: prost-build-config
+// 简化使用Prost的库create: prost-build-config

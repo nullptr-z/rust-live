@@ -1,7 +1,0 @@
-{
-  "deno.enable": true,
-  "deno.path": "/home/zheng/.deno/bin/deno",
-  "rust-analyzer.linkedProjects": [
-    "./sql-query-all/Cargo.toml"
-  ]
-}
