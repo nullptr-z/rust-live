@@ -13,18 +13,29 @@ impl MemoryDB {
     pub fn new() -> Self {
         Self::default()
     }
+
+    fn get_or_create_table(&self, table_name: &str) -> Ref<String, DashMap<String, Value>> {
+        let table = self.0.borrow().get(table_name);
+        match table {
+            Some(table) => table,
+            None => {
+                let entry = self.0.entry(table_name.to_owned()).or_default();
+                entry.downgrade()
+            }
+        }
+    }
 }
 
 impl Storage for MemoryDB {
     fn get(&self, table: &str, key: &str) -> Result<Option<Value>, KvError> {
-        let table = self.get_or_create_table::<DashMap<String, DashMap<String, Value>>>(table);
-        let value: Option<Value> = table.get(key).map_or(None, |v| v.value().clone());
+        let table = self.get_or_create_table(table);
+        let value: Option<Value> = table.get(key).map_or(None, |v| Some(v.value().clone()));
 
         Ok(value)
     }
 
     fn set(&self, table: &str, key: String, value: Value) -> Result<Option<Value>, KvError> {
-        let table = self.get_or_create_table::<DashMap<String, DashMap<String, Value>>>(table);
+        let table = self.get_or_create_table(table);
         let result = table.insert(key, value);
 
         Ok(result)
@@ -46,27 +57,28 @@ impl Storage for MemoryDB {
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError> {
         todo!()
     }
-
-    fn get_or_create_table<T>(&self, table: &str) -> T {
-        let table = self.0.borrow().get(table);
-        let aaa = table.unwrap().value();
-        match table {
-            Some(table) => table.value().clone(),
-            None => MemoryDB::new().0,
-        }
-    }
 }
 
 impl Deref for MemoryDB {
     type Target = DashMap<String, DashMap<String, Value>>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0.borrow()
+        &self.0
     }
 }
 
 impl DerefMut for MemoryDB {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0.borrow_mut()
+        &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::MemoryDB;
+
+    #[test]
+    fn test_get_or_create_table() {
+        let db = MemoryDB::new();
     }
 }

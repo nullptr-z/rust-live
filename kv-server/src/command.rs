@@ -15,7 +15,7 @@ fn verification_table<'a>(table: &'a str, res: &mut CommandResponse) -> Option<&
 }
 
 impl CommandServer for Hget {
-    fn execute<T>(self, store: &impl crate::Storage) -> CommandResponse {
+    fn execute(self, store: &impl crate::Storage) -> CommandResponse {
         let mut res = CommandResponse::default();
 
         let table: Option<&str> = verification_table(&self.table, &mut res);
@@ -45,7 +45,7 @@ impl CommandServer for Hget {
 }
 
 impl CommandServer for Hset {
-    fn execute<T>(self, store: &impl crate::Storage) -> CommandResponse {
+    fn execute(self, store: &impl crate::Storage) -> CommandResponse {
         let mut res = CommandResponse::default();
 
         let table = verification_table(&self.table, &mut res);

@@ -7,13 +7,12 @@ pub use command::*;
 pub use error::KvError;
 pub use memory_db::*;
 pub use pb::{command_request::RequestData, CommandRequest, CommandResponse, Kvpair, Value};
-use reqwest::StatusCode;
 
 pub trait CommandServer {
-    fn execute<T>(self, store: &impl Storage) -> CommandResponse;
+    fn execute(self, store: &impl Storage) -> CommandResponse;
 }
 
-pub fn dispatch<T>(cmd: CommandRequest, storage: &impl Storage) -> CommandResponse {
+pub fn dispatch(cmd: CommandRequest, storage: &impl Storage) -> CommandResponse {
     if let Some(request_data) = cmd.request_data {
         return match request_data {
             RequestData::Hget(cmd) => cmd.execute(storage),
@@ -44,6 +43,6 @@ pub trait Storage {
     fn get_all(&self, table: &str) -> Result<Vec<Kvpair>, KvError>;
     /// 遍历 HashTable，返回 kv pair 的 Iterator
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError>;
-    // 有则返回，无则创建
-    fn get_or_create_table<T>(&self, table: &str) -> T;
+    // // 有则返回，无则创建
+    // fn get_or_create_table<T>(&self, table: &str) -> T;
 }
