@@ -10,19 +10,10 @@ pub use pb::{command_request::RequestData, CommandRequest, CommandResponse, Kvpa
 use reqwest::StatusCode;
 
 pub trait CommandServer {
-    fn execute(self, store: &impl Storage) -> CommandResponse;
-
-    fn verification_table<'a>(table: &'a str, res: &mut CommandResponse) -> Option<&'a str> {
-        if table.is_empty() {
-            res.status = StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _;
-            res.message = format!("Not found Database Table: {}", table);
-            return None;
-        }
-        Some(table)
-    }
+    fn execute<T>(self, store: &impl Storage) -> CommandResponse;
 }
 
-pub fn dispatch(cmd: CommandRequest, storage: &impl Storage) -> CommandResponse {
+pub fn dispatch<T>(cmd: CommandRequest, storage: &impl Storage) -> CommandResponse {
     if let Some(request_data) = cmd.request_data {
         return match request_data {
             RequestData::Hget(cmd) => cmd.execute(storage),
@@ -42,7 +33,8 @@ pub fn dispatch(cmd: CommandRequest, storage: &impl Storage) -> CommandResponse 
 pub trait Storage {
     /// 从一个 HashTable 里获取一个 key 的 value
     fn get(&self, table: &str, key: &str) -> Result<Option<Value>, KvError>;
-    /// 设置 HashTabl e里一个 key 的 value，返回旧的 value
+    /// 设置/更新 HashTabl e里一个 key 的 value，返回旧的 value \
+    /// 首次设置返回的是 `None`
     fn set(&self, table: &str, key: String, value: Value) -> Result<Option<Value>, KvError>;
     /// 查看 HashTable 中是否有 key
     fn contains(&self, table: &str, key: &str) -> Result<bool, Value>;
@@ -52,4 +44,6 @@ pub trait Storage {
     fn get_all(&self, table: &str) -> Result<Vec<Kvpair>, KvError>;
     /// 遍历 HashTable，返回 kv pair 的 Iterator
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError>;
+    // 有则返回，无则创建
+    fn get_or_create_table<T>(&self, table: &str) -> T;
 }

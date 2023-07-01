@@ -23,12 +23,10 @@ async fn main() -> Result<(), anyhow::Error> {
                     .for_async();
 
             while let Some(Ok(cmd)) = server.next().await {
-                info!("God a CommandRequest:{:?}", cmd);
+                info!("God a CommandRequest: {:?}", cmd);
 
-                let res = dispatch(cmd, &storage);
-                println!("【 res 】==> {:?}", res);
-
-                server.send(res).await.unwrap();
+                let resp = dispatch(cmd, &storage);
+                server.send(resp).await.unwrap();
             }
             info!("Client disconnect: http://{}", addr);
         });

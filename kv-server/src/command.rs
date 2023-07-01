@@ -5,11 +5,20 @@ use crate::{
     CommandResponse, CommandServer, Kvpair, Value,
 };
 
+fn verification_table<'a>(table: &'a str, res: &mut CommandResponse) -> Option<&'a str> {
+    if table.is_empty() {
+        res.status = StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _;
+        res.message = format!("Not found Database Table: {}", table);
+        return None;
+    }
+    Some(table)
+}
+
 impl CommandServer for Hget {
-    fn execute(self, store: &impl crate::Storage) -> CommandResponse {
+    fn execute<T>(self, store: &impl crate::Storage) -> CommandResponse {
         let mut res = CommandResponse::default();
 
-        let table = <Hset as CommandServer>::verification_table(&self.table, &mut res);
+        let table: Option<&str> = verification_table(&self.table, &mut res);
         if table.is_none() {
             return res;
         };
@@ -17,10 +26,10 @@ impl CommandServer for Hget {
         if let Ok(Some(result)) = store.get(table.unwrap(), &self.key) {
             res.status = StatusCode::OK.as_u16() as _;
             res.values.push(result.clone());
-            res.pairs.push(Kvpair {
-                key: self.key.to_string(),
-                value: Some(result),
-            });
+            // res.pairs.push(Kvpair {
+            //     key: self.key.to_string(),
+            //     value: Some(result),
+            // });
         } else {
             println!(
                 "【  StatusCode::INTERNAL_SERVER_ERROR 】==> {:?}",
@@ -36,10 +45,10 @@ impl CommandServer for Hget {
 }
 
 impl CommandServer for Hset {
-    fn execute(self, store: &impl crate::Storage) -> CommandResponse {
+    fn execute<T>(self, store: &impl crate::Storage) -> CommandResponse {
         let mut res = CommandResponse::default();
 
-        let table = <Hget as CommandServer>::verification_table(&self.table, &mut res);
+        let table = verification_table(&self.table, &mut res);
         if table.is_none() {
             return res;
         };
@@ -47,12 +56,12 @@ impl CommandServer for Hset {
         if let Some(Kvpair { key, value }) = self.pair {
             let value = value.map_or(Value::default(), |v| v);
 
-            let result = store.set(table.unwrap(), key.clone(), value).unwrap();
+            let result = store.set(table.unwrap(), key.clone(), value);
 
-            if result.is_none() {
+            if let Ok(v) = result {
                 res.status = StatusCode::OK.as_u16() as _;
                 res.message = "添加成功".to_owned();
-                // res.values.push(result.clone().unwrap());
+                res.values.push(v.unwrap());
                 // res.pairs.push(Kvpair { key, value: result });
             } else {
                 res.status = StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _;

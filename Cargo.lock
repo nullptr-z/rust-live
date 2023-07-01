@@ -1380,6 +1380,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-prost",
+ "dashmap",
  "futures",
  "prost 0.10.4",
  "prost-build",
