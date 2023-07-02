@@ -42,16 +42,23 @@ impl Storage for MemoryDB {
     }
 
     fn contains(&self, table: &str, key: &str) -> Result<bool, Value> {
-        self.0.borrow().contains_key(key);
-        todo!()
+        let table = self.get_or_create_table(table);
+        Ok(table.contains_key(key))
     }
 
     fn del(&self, table: &str, key: &str) -> Result<Option<Value>, KvError> {
-        todo!()
+        let table = self.get_or_create_table(table);
+        Ok(table.remove(key).map(|(_k, v)| v))
     }
 
     fn get_all(&self, table: &str) -> Result<Vec<Kvpair>, KvError> {
-        todo!()
+        let table = self.get_or_create_table(table);
+        let kvs = table
+            .iter()
+            .map(|v| Kvpair::new(v.key(), v.value().clone()))
+            .collect();
+
+        Ok(kvs)
     }
 
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError> {

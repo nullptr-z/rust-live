@@ -1,8 +1,8 @@
 use reqwest::StatusCode;
 
 use crate::{
-    pb::{Hget, Hset},
-    CommandResponse, CommandServer, Kvpair, Value,
+    pb::{Hget, Hgetall, Hset},
+    CommandResponse, CommandServer, Kvpair, Storage, Value,
 };
 
 fn verification_table<'a>(table: &'a str, res: &mut CommandResponse) -> Option<&'a str> {
@@ -23,20 +23,11 @@ impl CommandServer for Hget {
             return res;
         };
 
-        if let Ok(Some(result)) = store.get(table.unwrap(), &self.key) {
+        if let Ok(Some(v)) = store.get(table.unwrap(), &self.key) {
             res.status = StatusCode::OK.as_u16() as _;
-            res.values.push(result.clone());
-            // res.pairs.push(Kvpair {
-            //     key: self.key.to_string(),
-            //     value: Some(result),
-            // });
+            res.values.push(v);
         } else {
-            println!(
-                "【  StatusCode::INTERNAL_SERVER_ERROR 】==> {:?}",
-                StatusCode::INTERNAL_SERVER_ERROR
-            );
             res.status = StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _;
-
             res.message = format!("Fialed go get field value for key: {}", self.key);
         }
 
@@ -58,11 +49,9 @@ impl CommandServer for Hset {
 
             let result = store.set(table.unwrap(), key.clone(), value);
 
-            if let Ok(v) = result {
+            if let Ok(_) = result {
                 res.status = StatusCode::OK.as_u16() as _;
                 res.message = "添加成功".to_owned();
-                res.values.push(v.unwrap());
-                // res.pairs.push(Kvpair { key, value: result });
             } else {
                 res.status = StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _;
                 res.message = format!(
@@ -74,5 +63,14 @@ impl CommandServer for Hset {
         };
 
         res
+    }
+}
+
+impl CommandServer for Hgetall {
+    fn execute(self, store: &impl Storage) -> CommandResponse {
+        match store.get_all(&self.table) {
+            Ok(kvs) => kvs.into(),
+            Err(err) => err.into(),
+        }
     }
 }

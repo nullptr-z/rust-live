@@ -19,17 +19,25 @@ async fn main() -> Result<(), anyhow::Error> {
     // 创建一个 hset 命令
     let cmd = CommandRequest::new_hset("table1", "my_key", "world".into());
     client.send(cmd).await?;
+    client.next().await;
 
-    let data = client.next().await;
-    info!("Got response: {:#?}", data);
+    let cmd = CommandRequest::new_hset("table1", "kv", "kv server".into());
+    client.send(cmd).await?;
+    client.next().await;
+
+    // let data = client.next().await;
+    // info!("Got response: {:#?}", data);
 
     // std::thread::sleep(Duration::from_secs(2));
     let cmd = CommandRequest::new_hget("table1", "my_key");
     client.send(cmd).await?;
+    client.next().await;
 
+    let cmd = CommandRequest::new_hgetall("table1");
+    client.send(cmd).await?;
     let data = client.next().await;
     info!("Got response: {:#?}", data);
-    // std::thread::sleep(Duration::from_secs(2));
+
     // while let Some(data) = client.next().await {
     //     info!("Got response: {:#?}", data);
     // }

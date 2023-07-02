@@ -1385,6 +1385,7 @@ dependencies = [
  "prost 0.10.4",
  "prost-build",
  "reqwest",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
