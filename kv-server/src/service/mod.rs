@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 pub use command_server::*;
 
-use crate::{storage, CommandRequest, CommandResponse, MemoryDB, RequestData, Storage};
+use crate::{CommandRequest, CommandResponse, MemoryDB, RequestData, Storage};
 
 pub trait CommandServer {
     fn execute(self, store: &impl Storage) -> CommandResponse;
@@ -56,4 +56,10 @@ pub fn dispatch(cmd: CommandRequest, storage: &impl Storage) -> CommandResponse 
         };
     }
     CommandResponse::default()
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_service() {}
 }

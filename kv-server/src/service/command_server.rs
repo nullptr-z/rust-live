@@ -68,8 +68,8 @@ impl CommandServer for Hset {
 
 impl CommandServer for Hgetall {
     fn execute(self, store: &impl Storage) -> CommandResponse {
-        match store.get_all(&self.table) {
-            Ok(kvs) => kvs.into(),
+        match store.get_iter(&self.table) {
+            Ok(iter) => iter.collect::<Vec<Kvpair>>().into(),
             Err(err) => err.into(),
         }
     }

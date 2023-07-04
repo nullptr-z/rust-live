@@ -62,7 +62,19 @@ impl Storage for MemoryDB {
     }
 
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError> {
-        todo!()
+        let table = self.get_or_create_table(table);
+        let iter = table.clone().into_iter().map(|item| item.into());
+
+        Ok(Box::new(iter))
+    }
+}
+
+impl From<(String, Value)> for Kvpair {
+    fn from(value: (String, Value)) -> Self {
+        Self {
+            key: value.0,
+            value: Some(value.1),
+        }
     }
 }
 
@@ -85,7 +97,5 @@ mod test {
     use crate::MemoryDB;
 
     #[test]
-    fn test_get_or_create_table() {
-        let db = MemoryDB::new();
-    }
+    fn test_get_or_create_table() {}
 }
