@@ -61,19 +61,20 @@ impl Storage for MemoryDB {
         Ok(kvs)
     }
 
+    /// dyn Iterator 忽略其他，只关心是否可以使用 next()
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError> {
-        let table = self.get_or_create_table(table);
-        let iter = table.clone().into_iter().map(|item| item.into());
-
+        // 使用 clone() 来获取 table 的 snapshot, 高效的，除非hash表很大
+        let table = self.get_or_create_table(table).clone();
+        let iter = crate::StorageIter::new(table.into_iter()); // 这行改掉了
         Ok(Box::new(iter))
     }
 }
 
 impl From<(String, Value)> for Kvpair {
-    fn from(value: (String, Value)) -> Self {
+    fn from(item: (String, Value)) -> Self {
         Self {
-            key: value.0,
-            value: Some(value.1),
+            key: item.0,
+            value: Some(item.1),
         }
     }
 }
