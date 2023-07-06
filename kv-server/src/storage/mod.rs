@@ -17,6 +17,10 @@ pub trait Storage {
     /// 遍历 HashTable，返回所有 kv pair（这个接口不好）
     fn get_all(&self, table: &str) -> Result<Vec<Kvpair>, KvError>;
     /// 遍历 HashTable，返回 kv pair 的 Iterator
+    /// ---
+    /// 1. 拿到一个关于某个 table 下的拥有所有权的Iterator \
+    /// 2. 对 Iterator 做 map \
+    /// 3. 将 map 出来的每个 item 转换成 Kvpair，建议实现 Into<Kvpair>
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError>;
     // // 有则返回，无则创建
     // fn get_or_create_table<T>(&self, table: &str) -> T;

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use async_prost::AsyncProstStream;
 use futures::{SinkExt, StreamExt};
 use kv_server::{CommandRequest, CommandResponse};

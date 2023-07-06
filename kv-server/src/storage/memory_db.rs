@@ -2,7 +2,7 @@ use dashmap::{mapref::one::Ref, DashMap};
 
 use crate::{KvError, Kvpair, Storage, Value};
 use std::{
-    borrow::{Borrow, BorrowMut},
+    borrow::Borrow,
     ops::{Deref, DerefMut},
 };
 

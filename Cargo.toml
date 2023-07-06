@@ -8,16 +8,16 @@ edition = "2021"
 # 子目录可以在他自己的 Cargo.toml 文件中加入一个空 [workspace] 指明他不属于这个 workspace; 例如 quic-protocol-live 这个 create
 [workspace]
 members = [
-  "create-practice/prost-live",
-  "create-practice/axum-live",
-  "create-practice/axum-ws-live",
-  "create-practice/tokio-live",
+  # "create-practice/prost-live",
+  # "create-practice/axum-live",
+  # "create-practice/axum-ws-live",
+  # "create-practice/tokio-live",
   # "create-practice/dioxus-live",
-  "create-practice/tonic-live",
-  "create-practice/quic-protocol-live",
-  "chrome-v8-live",
+  # "create-practice/tonic-live",
+  # "create-practice/quic-protocol-live",
+  # "chrome-v8-live",
   # "deno-core-live",
-  "macros/proc-macros",
+  # "macros/proc-macros",
   "kv-server",
-  "sql-query-all"
+  # "sql-query-all"
 ]
