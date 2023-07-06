@@ -556,6 +556,7 @@ dependencies = [
  "prost-build",
  "reqwest",
  "sled",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",

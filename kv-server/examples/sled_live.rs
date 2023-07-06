@@ -9,7 +9,7 @@ fn main() {
     for kv in tree.range("KEY1".."KEY9") {}
 
     // deletion
-    // tree.remove(&"KEY1");
+    tree.remove(&"KEY1");
 
     // atomic compare and swap
     tree.compare_and_swap("KEY1", Some("VAL1"), Some("VAL2"));
