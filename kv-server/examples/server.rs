@@ -35,6 +35,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
         let svc = service.clone();
         tokio::spawn(async move {
+            // protobuf 协议，定义如何解析传输的内容
             let mut stream =
                 AsyncProstStream::<_, CommandRequest, CommandResponse, _>::from(server_stream)
                     .for_async();

@@ -10,6 +10,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let addr = "127.0.0.1:7878";
     let stream = TcpStream::connect(addr).await?;
+    // protobuf 协议，定义如何解析传输的内容
     // 将tcp stream帧封装成 protobuf 消息
     let mut client =
         AsyncProstStream::<_, CommandResponse, CommandRequest, _>::from(stream).for_async();
