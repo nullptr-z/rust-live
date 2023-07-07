@@ -1,6 +1,8 @@
 mod memory_db;
+mod sled_db;
 
 pub use memory_db::*;
+pub use sled_db::*;
 
 use crate::{KvError, Kvpair, Value};
 
