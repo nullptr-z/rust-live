@@ -1,6 +1,6 @@
 use sled::{Db, IVec};
 
-use crate::{error, Storage};
+use crate::{error, KvError, Storage};
 
 #[derive(Debug)]
 pub struct SledDB(Db);
@@ -28,29 +28,70 @@ impl SledDB {
     }
 }
 
-// impl From<crate::Value> for IVec {
-//     // type Error = error::KvError;
+#[inline]
+fn string_to_ivec<T>(v: T) -> Result<IVec, KvError>
+where
+    T: ToString,
+{
+    Ok(IVec::from(v.to_string().as_str()))
+}
 
-//     fn from(value: crate::Value) -> Self {
-//         let val = if let Some(v) = value.value {
-//             match v {
-//                 crate::pb::value::Value::String(val) => IVec::from(val.as_str()),
-//                 crate::pb::value::Value::Binary(val) => IVec::from_iter(val.into_iter()),
-//                 crate::pb::value::Value::Integer(val) => IVec::from(val.to_string().as_str()),
-//                 crate::pb::value::Value::Float(val) => IVec::from(val.to_string().as_str()),
-//                 crate::pb::value::Value::Bool(val) => IVec::from(val.to_string().as_str()),
-//             }
-//         } else {
-//             IVec::default()
-//         };
+impl TryFrom<crate::Value> for IVec {
+    type Error = error::KvError;
 
-//         val
-//     }
-// }
+    fn try_from(value: crate::Value) -> Result<Self, Self::Error> {
+        let val = if let Some(v) = value.value {
+            match v {
+                crate::pb::value::Value::String(val) => string_to_ivec(val),
+                crate::pb::value::Value::Integer(val) => string_to_ivec(val),
+                crate::pb::value::Value::Float(val) => string_to_ivec(val),
+                crate::pb::value::Value::Bool(val) => string_to_ivec(val),
+                crate::pb::value::Value::Binary(val) => Ok(IVec::from_iter(val.into_iter())),
+            }
+        } else {
+            Err(KvError::ConvertError(value, "IVec"))
+        };
+
+        val
+    }
+}
+
+struct SledResult<T, E> {
+    inner: Option<Result<T, E>>,
+}
+
+impl<T, E> Into<SledResult<T, E>> for Option<Result<T, E>> {
+    fn into(self) -> SledResult<T, E> {
+        SledResult { inner: self }
+    }
+}
+
+impl<T, E> SledResult<T, E> {
+    fn flip(self) -> Result<Option<T>, E> {
+        self.inner.map_or(Ok(None), |v| v.map(|v| Some(v)))
+    }
+}
+
+fn flip<T, E>(v: Option<Result<T, E>>) -> Result<Option<T>, E> {
+    v.map_or(Ok(None), |v| v.map(|v| Some(v)))
+}
 
 impl Storage for SledDB {
+    // fn get(&self, table: &str, key: &str) -> Result<Option<crate::Value>, crate::KvError> {
+    //     let table_key = SledDB::get_full_key(table, &key);
+    //     let result = self.0.get(table_key)?.map(|val| val.as_ref().try_into());
+
+    //     flip(result)
+    // }
+
     fn get(&self, table: &str, key: &str) -> Result<Option<crate::Value>, crate::KvError> {
-        todo!()
+        let table_key = SledDB::get_full_key(table, &key);
+        let result = self.0.get(table_key)?.map(|val| val.as_ref().try_into());
+
+        // TODO 使用SledResult简化, Result<Option<IVec>, Error> to Result<Option<crate::Value>, crate::KvError>
+
+        let sr = Into::<SledResult<crate::Value, KvError>>::into(result);
+        sr.flip()
     }
 
     fn set(
@@ -60,9 +101,16 @@ impl Storage for SledDB {
         value: crate::Value,
     ) -> Result<Option<crate::Value>, crate::KvError> {
         let table_key = SledDB::get_full_key(table, &key);
-        let data:Vec<u8>=value.map(|v|v.as);
-        let ins = self.0.insert(table_key, value);
-        todo!()
+        let result = self
+            .0
+            .insert(&table_key, IVec::try_from(value)?)?
+            .map(|val| {
+                let vv = val.as_ref();
+                let vvv = vv.try_into();
+                vvv
+            });
+
+        flip(result)
     }
 
     fn contains(&self, table: &str, key: &str) -> Result<bool, crate::Value> {

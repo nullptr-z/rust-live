@@ -1,6 +1,9 @@
 mod abi;
 
+use std::str::FromStr;
+
 pub use abi::*;
+use prost::Message;
 use reqwest::StatusCode;
 
 use crate::KvError;
@@ -95,5 +98,35 @@ impl From<KvError> for CommandResponse {
         }
 
         res
+    }
+}
+
+impl TryFrom<Value> for Vec<u8> {
+    type Error = KvError;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let val = if let Some(v) = &value.value {
+            match v {
+                crate::pb::value::Value::String(val) => Ok(val.as_bytes().to_vec()),
+                _ => Err(KvError::ConvertError(value, "Vec[u8]")),
+            }
+        } else {
+            Err(KvError::ConvertError(value, "Option::Some"))
+        };
+
+        val
+    }
+}
+
+impl TryFrom<&[u8]> for Value {
+    type Error = KvError;
+
+    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+        let aa = Value {
+            value: Some(value::Value::String(unsafe {
+                String::from_utf8_unchecked(buf.into())
+            })),
+        };
+        Ok(aa)
     }
 }

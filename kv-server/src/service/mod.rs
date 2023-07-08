@@ -62,16 +62,16 @@ pub struct Service<Store = MemoryDB> {
 }
 
 pub trait Notify<Arg> {
-    fn natify(&self, arg: &Arg);
+    fn notify(&self, arg: &Arg);
 }
 
 pub trait NotifyMut<Arg> {
-    fn natify(&self, arg: &mut Arg);
+    fn notify(&self, arg: &mut Arg);
 }
 
 impl<Arg> Notify<Arg> for Vec<fn(&Arg)> {
     #[inline]
-    fn natify(&self, arg: &Arg) {
+    fn notify(&self, arg: &Arg) {
         for f in self {
             f(arg)
         }
@@ -79,7 +79,7 @@ impl<Arg> Notify<Arg> for Vec<fn(&Arg)> {
 }
 impl<Arg> NotifyMut<Arg> for Vec<fn(&mut Arg)> {
     #[inline]
-    fn natify(&self, arg: &mut Arg) {
+    fn notify(&self, arg: &mut Arg) {
         for f in self {
             f(arg)
         }
@@ -88,10 +88,10 @@ impl<Arg> NotifyMut<Arg> for Vec<fn(&mut Arg)> {
 
 impl<Store: Storage> Service<Store> {
     pub fn execute(&self, cmd: CommandRequest) -> CommandResponse {
-        self.inner.on_recevied.natify(&cmd);
+        self.inner.on_recevied.notify(&cmd);
         let mut resp = dispatch(cmd, &self.inner.clone().store);
-        self.inner.on_executed.natify(&resp);
-        self.inner.on_before_send.natify(&mut resp);
+        self.inner.on_executed.notify(&resp);
+        self.inner.on_before_send.notify(&mut resp);
         if !self.inner.on_before_send.is_empty() {
             debug!("Modified`修改后的 response: {:?}", resp);
         }
