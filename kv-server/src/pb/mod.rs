@@ -122,11 +122,13 @@ impl TryFrom<&[u8]> for Value {
     type Error = KvError;
 
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
-        let aa = Value {
-            value: Some(value::Value::String(unsafe {
-                String::from_utf8_unchecked(buf.into())
-            })),
+        let str = Value {
+            value: Some(value::Value::String(
+                String::from_utf8(buf.to_vec())
+                    .expect(format!("Failed String::from_utf8 for value: {:?}", buf).as_str()),
+            )),
         };
-        Ok(aa)
+
+        Ok(str)
     }
 }

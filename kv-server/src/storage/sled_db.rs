@@ -1,3 +1,5 @@
+use std::{convert, ops::Deref};
+
 use sled::{Db, IVec};
 
 use crate::{error, KvError, Storage};
@@ -56,42 +58,40 @@ impl TryFrom<crate::Value> for IVec {
     }
 }
 
-struct SledResult<T, E> {
-    inner: Option<Result<T, E>>,
+pub trait SledOption<T, E> {
+    fn flip(self) -> Result<Option<T>, E>;
 }
 
-impl<T, E> Into<SledResult<T, E>> for Option<Result<T, E>> {
-    fn into(self) -> SledResult<T, E> {
-        SledResult { inner: self }
-    }
-}
-
-impl<T, E> SledResult<T, E> {
+impl<T, E> SledOption<T, E> for Option<Result<T, E>> {
     fn flip(self) -> Result<Option<T>, E> {
-        self.inner.map_or(Ok(None), |v| v.map(|v| Some(v)))
+        self.map_or(Ok(None), |v| v.map(|v| Some(v)))
     }
 }
 
-fn flip<T, E>(v: Option<Result<T, E>>) -> Result<Option<T>, E> {
-    v.map_or(Ok(None), |v| v.map(|v| Some(v)))
+pub trait SledResult<T, E> {
+    fn flipr(self) -> Result<Option<crate::Value>, KvError>;
+}
+
+impl<T, E> SledResult<T, E> for Result<Option<T>, E>
+where
+    T: Deref<Target = [u8]>,
+    // E: KvError,
+    // for<'a> V: TryFrom<&'a [u8], Error = E>,
+{
+    fn flipr(self) -> Result<Option<crate::Value>, KvError> {
+        match self {
+            Ok(v) => v.map(|val| val.as_ref().try_into()).flip(),
+            Err(_) => Err(KvError::Internal("error flipr".to_owned())),
+        }
+    }
 }
 
 impl Storage for SledDB {
-    // fn get(&self, table: &str, key: &str) -> Result<Option<crate::Value>, crate::KvError> {
-    //     let table_key = SledDB::get_full_key(table, &key);
-    //     let result = self.0.get(table_key)?.map(|val| val.as_ref().try_into());
-
-    //     flip(result)
-    // }
-
-    fn get(&self, table: &str, key: &str) -> Result<Option<crate::Value>, crate::KvError> {
+    fn get(&self, table: &str, key: &str) -> Result<Option<crate::Value>, KvError> {
         let table_key = SledDB::get_full_key(table, &key);
-        let result = self.0.get(table_key)?.map(|val| val.as_ref().try_into());
+        let result = self.0.get(table_key).flipr();
 
-        // TODO 使用SledResult简化, Result<Option<IVec>, Error> to Result<Option<crate::Value>, crate::KvError>
-
-        let sr = Into::<SledResult<crate::Value, KvError>>::into(result);
-        sr.flip()
+        result
     }
 
     fn set(
@@ -99,36 +99,34 @@ impl Storage for SledDB {
         table: &str,
         key: String,
         value: crate::Value,
-    ) -> Result<Option<crate::Value>, crate::KvError> {
+    ) -> Result<Option<crate::Value>, KvError> {
         let table_key = SledDB::get_full_key(table, &key);
-        let result = self
-            .0
-            .insert(&table_key, IVec::try_from(value)?)?
-            .map(|val| {
-                let vv = val.as_ref();
-                let vvv = vv.try_into();
-                vvv
-            });
+        let result = self.0.insert(&table_key, IVec::try_from(value)?).flipr();
 
-        flip(result)
+        result
+
+        // let result = self
+        //     .0
+        //     .insert(&table_key, IVec::try_from(value)?)
+        //     .unwrap()
+        //     .map(|val| val.as_ref().try_into())
+        //     .flip();
+        // result
     }
 
     fn contains(&self, table: &str, key: &str) -> Result<bool, crate::Value> {
         todo!()
     }
 
-    fn del(&self, table: &str, key: &str) -> Result<Option<crate::Value>, crate::KvError> {
+    fn del(&self, table: &str, key: &str) -> Result<Option<crate::Value>, KvError> {
         todo!()
     }
 
-    fn get_all(&self, table: &str) -> Result<Vec<crate::Kvpair>, crate::KvError> {
+    fn get_all(&self, table: &str) -> Result<Vec<crate::Kvpair>, KvError> {
         todo!()
     }
 
-    fn get_iter(
-        &self,
-        table: &str,
-    ) -> Result<Box<dyn Iterator<Item = crate::Kvpair>>, crate::KvError> {
+    fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = crate::Kvpair>>, KvError> {
         todo!()
     }
 }
@@ -142,7 +140,7 @@ mod test {
         let sled_db = SledDB::default();
 
         sled_db
-            .set("sled_db1", "sled_key1".into(), "sled db value 1".into())
+            .set("sled_db1", "sled_key1".into(), "sled db value 3".into())
             .unwrap();
 
         let value = sled_db.get("sled_db1", "sled_key1".into());
