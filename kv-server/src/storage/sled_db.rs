@@ -2,7 +2,7 @@ use std::{convert, ops::Deref};
 
 use sled::{Db, IVec};
 
-use crate::{error, KvError, Storage};
+use crate::{error, KvError, Kvpair, Storage, StorageIter};
 
 #[derive(Debug)]
 pub struct SledDB(Db);
@@ -15,16 +15,16 @@ impl Default for SledDB {
 }
 
 impl SledDB {
-    fn new(path: &str) -> Self {
+    pub fn new(path: &str) -> Self {
         let db = sled::open(path).unwrap();
         Self(db)
     }
 
-    // 完整table key
+    // key为完整table:key组件
     fn get_full_key(table: &str, key: &str) -> String {
         format!("{}:{}", table, key)
     }
-    // table 前缀
+    // key的前缀为table
     fn get_table_prefix(table: &str) -> String {
         table.to_string()
     }
@@ -114,20 +114,45 @@ impl Storage for SledDB {
         // result
     }
 
-    fn contains(&self, table: &str, key: &str) -> Result<bool, crate::Value> {
-        todo!()
+    fn contains(&self, table: &str, key: &str) -> Result<bool, KvError> {
+        let table_key = SledDB::get_full_key(table, &key);
+        let result = self.0.contains_key(table_key)?;
+
+        Ok(result)
     }
 
     fn del(&self, table: &str, key: &str) -> Result<Option<crate::Value>, KvError> {
-        todo!()
+        let table_key = SledDB::get_full_key(table, &key);
+        let result = self.0.remove(table_key).flipr();
+
+        result
     }
 
     fn get_all(&self, table: &str) -> Result<Vec<crate::Kvpair>, KvError> {
-        todo!()
+        let table_key = SledDB::get_table_prefix(table);
+        let result = self.0.scan_prefix(table_key).map(|v| v.into()).collect();
+
+        Ok(result)
     }
 
     fn get_iter(&self, table: &str) -> Result<Box<dyn Iterator<Item = crate::Kvpair>>, KvError> {
-        todo!()
+        let table_key = SledDB::get_table_prefix(table);
+        let table_iter = self.0.scan_prefix(table_key);
+        let iter = StorageIter::new(table_iter);
+
+        Ok(Box::new(iter))
+    }
+}
+
+impl<E> From<Result<(IVec, IVec), E>> for Kvpair {
+    fn from(source: Result<(IVec, IVec), E>) -> Self {
+        match source {
+            Ok(v) => Kvpair::new(
+                String::from_utf8_lossy(v.0.as_ref()),
+                String::from_utf8_lossy(v.1.as_ref()).to_string().as_str(),
+            ),
+            Err(_) => Kvpair::default(),
+        }
     }
 }
 

@@ -1,9 +1,6 @@
 mod abi;
 
-use std::str::FromStr;
-
 pub use abi::*;
-use prost::Message;
 use reqwest::StatusCode;
 
 use crate::KvError;
@@ -39,10 +36,10 @@ impl CommandRequest {
 }
 
 impl Kvpair {
-    pub fn new(key: impl Into<String>, value: Value) -> Self {
+    pub fn new(key: impl Into<String>, value: impl Into<Value>) -> Self {
         Self {
             key: key.into(),
-            value: Some(value),
+            value: Some(value.into()),
         }
     }
 }

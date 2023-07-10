@@ -41,8 +41,9 @@ impl Storage for MemoryDB {
         Ok(result)
     }
 
-    fn contains(&self, table: &str, key: &str) -> Result<bool, Value> {
+    fn contains(&self, table: &str, key: &str) -> Result<bool, KvError> {
         let table = self.get_or_create_table(table);
+
         Ok(table.contains_key(key))
     }
 

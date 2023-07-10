@@ -1,6 +1,6 @@
 use async_prost::AsyncProstStream;
 use futures::{SinkExt, StreamExt};
-use kv_server::{CommandRequest, CommandResponse, MemoryDB, Service, ServiceInner};
+use kv_server::{CommandRequest, CommandResponse, MemoryDB, Service, ServiceInner, SledDB};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -15,7 +15,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let listener: TcpListener = TcpListener::bind(addr).await?;
     info!("Start Listener on: http://{}", addr);
 
-    let service: Service = ServiceInner::new(MemoryDB::new())
+    let service: Service<SledDB> = ServiceInner::new(SledDB::default())
         .fn_recevied(|_req| {
             println!("this on_recevied");
         })

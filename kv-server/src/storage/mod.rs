@@ -13,7 +13,7 @@ pub trait Storage {
     /// 首次设置返回的是 `None`
     fn set(&self, table: &str, key: String, value: Value) -> Result<Option<Value>, KvError>;
     /// 查看 HashTable 中是否有 key
-    fn contains(&self, table: &str, key: &str) -> Result<bool, Value>;
+    fn contains(&self, table: &str, key: &str) -> Result<bool, KvError>;
     /// 从 HashTable 中删除一个 key,返回被删除的这个 Value
     fn del(&self, table: &str, key: &str) -> Result<Option<Value>, KvError>;
     /// 遍历 HashTable，返回所有 kv pair（这个接口不好）
@@ -29,8 +29,7 @@ pub trait Storage {
 }
 
 /// 提供 Storage iterator，这样 trait 的实现者只需要
-/// 把它们的 iterator 提供给 StorageIter，然后它们保证
-/// next() 传出的类型实现了 Into<Kvpair> 即可
+/// 把它们的 iterator 提供给 StorageIter，然后它们保证 next() 传出的类型实现了 Into<Kvpair> 即可
 pub struct StorageIter<T> {
     data: T,
 }
