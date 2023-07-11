@@ -1,6 +1,6 @@
 use crate::{CommandRequest, CommandResponse, KvError};
 use bytes::{Buf, BufMut, BytesMut};
-use flate2::{read::GzDecoder, write, Compression};
+use flate2::{read, write, Compression};
 use prost::Message;
 use std::io::{Read, Write};
 use tracing::debug;
@@ -35,7 +35,7 @@ where
             // 将数据字节流写入buf1
             self.encode(&mut buf1)?;
 
-            // 起始位置移动 LEN_LEN 获取数据部分; 分隔后，buf=长度，payload=数据
+            // 起始位置移动 LEN_LEN, 这里数据起始字节位的位置;
             let payload = buf.split_off(LEN_LEN);
             // 清除缓冲区
             buf.clear();
@@ -49,7 +49,7 @@ where
             let payload = encoder.finish()?.into_inner();
             debug!("Encode a frame: size {}({})", size, payload.len());
 
-            // 写入压缩后长度； | COMPRESSION_BIT防止超出，不过压缩后不应该长度更长
+            // 写入压缩后长度； 置位压缩标识
             buf.put_u32((payload.len() | COMPRESSION_BIT) as _);
             // 写入压缩后的数据流
             buf.unsplit(payload);
@@ -65,8 +65,35 @@ where
 
     // decode Frame into Message
     fn frame_decode(buf: &mut BytesMut) -> Result<Self, KvError> {
-        todo!()
+        // 获取长度标识符
+        let header = buf.get_u32() as usize;
+        //  size: 数据的长度; compressed: frame是否压缩
+        let (size, compressed) = decode_header(header);
+
+        // 如果解压过，这里要解压缩
+        if compressed {
+            // let size = (len as usize) & MAX_FRAME;
+            let mut buf1 = Vec::with_capacity(LEN_LEN + size);
+
+            let mut decoder = read::GzDecoder::new(&buf[..size]);
+
+            decoder.read_to_end(&mut buf1)?;
+            buf.advance(size);
+
+            let decode = Self::decode(buf1.as_slice());
+            Ok(decode?)
+        } else {
+            let decode = Self::decode(buf);
+
+            Ok(decode?)
+        }
     }
+}
+
+fn decode_header(header: usize) -> (usize, bool) {
+    let size = header & MAX_FRAME;
+    let compressed = header & COMPRESSION_BIT == COMPRESSION_BIT;
+    (size, compressed)
 }
 
 impl FrameCoder for CommandRequest {}
@@ -102,7 +129,10 @@ mod tests {
 
         // 需要压缩
         assert_eq!(is_compressed(&buf), true);
-        // let cmd = CommandRequest::new_hset("table1", "key1", value);
+
+        let res_decode = CommandResponse::frame_decode(&mut buf).unwrap();
+
+        assert_eq!(res, res_decode)
     }
 
     fn is_compressed(data: &[u8]) -> bool {
