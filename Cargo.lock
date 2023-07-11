@@ -560,6 +560,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-prost",
+ "bytes",
  "dashmap",
  "flate2",
  "futures",
