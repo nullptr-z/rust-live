@@ -104,10 +104,11 @@ fn decode_header(header: usize) -> (usize, bool) {
 }
 
 /**
- * 从 Stream(TPC,HTTP,WebSocket) 中读取 Frame, 保存到 buf
+ * 客户端接受一个响应，服务端接受一个请求时都需要用到
+ * 从 Stream 中读取数据流 , 保存到 buf
  * @param stream TCP stream
  * @param buf 帧的缓冲区frame buffer zone
- *
+ * 这是一个通用方法 Stream 可以是 TPC,HTTP,WebSocket
  * [参考](../../README.md#AsyncReadExt )
  */
 pub async fn read_frame<S>(stream: &mut S, buf: &mut BytesMut) -> Result<(), KvError>
@@ -120,7 +121,9 @@ where
     let (size, _compressed) = decode_header(header);
     // 至少要有一个 frame 的大小: 头部 4 字节 + frame大小
     buf.reserve(LEN_LEN + size);
+    // 拼装头部4字节
     buf.put_u32(header as _);
+    // 推进光标
     // reserve这段内存，然后再这个段范围内写入数据，这里是安全使用的
     unsafe { buf.advance_mut(size) };
     stream.read_exact(&mut buf[LEN_LEN..]).await?;
