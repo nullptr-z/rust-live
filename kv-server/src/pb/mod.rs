@@ -60,11 +60,31 @@ impl From<i64> for Value {
     }
 }
 
+impl<const N: usize> From<&[u8; N]> for Value {
+    fn from(value: &[u8; N]) -> Self {
+        String::from_utf8_lossy(value).as_ref().into()
+    }
+}
+
 impl From<Value> for CommandResponse {
     fn from(val: Value) -> Self {
         Self {
             status: StatusCode::OK.as_u16() as _,
             values: vec![val],
+            ..Default::default()
+        }
+    }
+}
+impl From<Vec<Value>> for CommandResponse {
+    fn from(vals: Vec<Value>) -> Self {
+        let mut values = vec![];
+        for val in vals {
+            values.push(val)
+        }
+
+        Self {
+            status: StatusCode::OK.as_u16() as _,
+            values,
             ..Default::default()
         }
     }
