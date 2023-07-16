@@ -37,7 +37,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
         tokio::spawn(async move {
             // protobuf 协议，定义如何解析传输的内容
-            stream.process().await;
+            stream.process().await.unwrap();
 
             info!("Client disconnect-: http://{}", addr);
         });

@@ -23,7 +23,7 @@ where
     Self: Message + Sized + Default,
 {
     /// encode Message into a Frame, and write it into buf \
-    /// 把 Message 封包成一个 Frame, 存入 buf
+    /// 将 Message(Self) 封包成一个 Frame, 然后存入 buf
     fn frame_encode(&self, buf: &mut BytesMut) -> Result<(), KvError> {
         let size = self.encoded_len();
         // 如果数据大小大于帧的大小限制，抛出异常
@@ -105,7 +105,7 @@ fn decode_header(header: usize) -> (usize, bool) {
 
 /**
  * 客户端接受一个响应，服务端接受一个请求时都需要用到
- * 从 Stream 中读取数据流 , 保存到 buf
+ * 从 Stream 中读取字节流 Frame, 保存到 buf
  * @param stream TCP stream
  * @param buf 帧的缓冲区frame buffer zone
  * 这是一个通用方法 Stream 可以是 TPC,HTTP,WebSocket

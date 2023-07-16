@@ -60,6 +60,21 @@ impl From<i64> for Value {
     }
 }
 
+impl TryFrom<&[u8]> for Value {
+    type Error = KvError;
+
+    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+        let str = Value {
+            value: Some(value::Value::String(
+                String::from_utf8(buf.to_vec())
+                    .expect(format!("Failed String::from_utf8 for value: {:?}", buf).as_str()),
+            )),
+        };
+
+        Ok(str)
+    }
+}
+
 impl<const N: usize> From<&[u8; N]> for Value {
     fn from(value: &[u8; N]) -> Self {
         String::from_utf8_lossy(value).as_ref().into()
@@ -132,20 +147,5 @@ impl TryFrom<Value> for Vec<u8> {
         };
 
         val
-    }
-}
-
-impl TryFrom<&[u8]> for Value {
-    type Error = KvError;
-
-    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
-        let str = Value {
-            value: Some(value::Value::String(
-                String::from_utf8(buf.to_vec())
-                    .expect(format!("Failed String::from_utf8 for value: {:?}", buf).as_str()),
-            )),
-        };
-
-        Ok(str)
     }
 }
