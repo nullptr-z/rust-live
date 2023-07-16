@@ -11,6 +11,7 @@ use tracing::info;
 
 use crate::{CommandRequest, CommandResponse, KvError, Service, Storage};
 
+// Server and Client Stream IO
 pub struct ProstStream<S, In, Out> {
     // inner stream
     stream: S,
