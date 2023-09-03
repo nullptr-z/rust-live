@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package broadcast;
+
+message LoginRequest {
+  string userid=1;
+  string username=2;
+  string password=3;
+}
+
+message Token {
+  string token=1;
+}
+
+message GetBroadcastRequest {}
+
+message SendBroadcastResponse {}
+
+// 客户发送一条新消息，服务器接受到并广播出去
+message NewMessage{
+  string content=1;
+  string room=2;
+}
+
+// 服务器把来自某个客户的消息，推送出去
+message BroadcastMessage{
+  // 发送者
+  string sender=1;
+  // 发送的频道
+  string room=2;
+  // 客户发送消息的内容
+  string content=3;
+  // 客户消息发送的时间
+  int64 timestamp=4;
+}
+
+
+// 客户端收、发都是单向的不需要响应，服务器收到了就要响应给所有人
+// 客户端-服务端通信
+service Broadcast {
+  // 登录-验证
+  rpc Login(LoginRequest) returns(Token){}
+  // 订阅-接受
+  rpc GetBroadcast(GetBroadcastRequest) returns(stream BroadcastMessage){}
+  // 发送-广播
+  rpc SendBroadcast(NewMessage) returns(SendBroadcastResponse){}
+}
