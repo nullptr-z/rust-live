@@ -19,5 +19,6 @@ members = [
   # "deno-core-live",
   # "macros/proc-macros",
   "kv-server",
+  "kv-db",
   # "sql-query-all"
 ]
