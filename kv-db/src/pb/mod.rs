@@ -30,7 +30,7 @@ impl CommandRequest {
         .into()
     }
 
-    pub fn new_hgetall(table: impl Into<String>, key: impl Into<String>) -> Self {
+    pub fn new_hgetall(table: impl Into<String>) -> Self {
         RequestData::Hgetall(Hgetall {
             table: table.into(),
         })
@@ -113,7 +113,7 @@ impl From<KvError> for CommandResponse {
 impl From<Vec<Kvpair>> for CommandResponse {
     fn from(value: Vec<Kvpair>) -> Self {
         Self {
-            status: StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
+            status: StatusCode::OK.as_u16() as _,
             pairs: value,
             ..Default::default()
         }

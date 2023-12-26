@@ -10,7 +10,9 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     // 创建一个Hset命令
-    let cmd = CommandRequest::new_hset("table1", "hello", "world".into());
+    // let cmd = CommandRequest::new_hset("table1", "hello1", "hahahaha".into());
+    // let cmd = CommandRequest::new_hget("table1", "hello");
+    let cmd = CommandRequest::new_hgetall("table1");
 
     let addr = "127.0.0.1:9876";
     let stream = TcpStream::connect(addr).await?;
