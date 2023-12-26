@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_prost::AsyncProstStream;
 use futures::{SinkExt, StreamExt};
+use hyper::StatusCode;
 use kv_db::pb::abi::{CommandRequest, CommandResponse};
 use tokio::net::TcpListener;
 use tracing::info;
@@ -24,7 +25,7 @@ async fn main() -> Result<()> {
                 info!("Got a new command {:?}", msg);
                 // 创建一个404响应给客户端
                 let mut resp = CommandResponse::default();
-                resp.status = 404;
+                resp.status = StatusCode::NOT_FOUND.as_u16() as _;
                 resp.message = "Not Found".into();
                 service.send(resp).await.unwrap();
             }
