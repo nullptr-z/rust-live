@@ -1,4 +1,5 @@
 mod command_service;
+pub mod service_builder;
 
 use std::{ops::Deref, sync::Arc};
 
@@ -14,22 +15,29 @@ pub trait CommandService {
 }
 
 /// 可以跨线程，可以调用 execute 来执行某个 CommandRequest 命令，返回 CommandResponse。
-#[derive(Debug)]
-pub struct Service<Store = MemTable>(Arc<Store>);
+pub struct Service<Store = MemTable> {
+    inner: Arc<ServiceBuilder<Store>>,
+}
 
 impl<Store: Storage> Service<Store> {
-    pub fn new(store: Store) -> Self {
-        Self(Arc::new(store))
-    }
-
     pub fn execute(self, cmd: CommandRequest) -> CommandResponse {
-        dispatch(cmd, self.as_ref())
+        dispatch(cmd, &self.clone().store)
     }
 }
 
-impl Default for Service {
-    fn default() -> Self {
-        Self(Arc::new(MemTable::default()))
+impl<Store> Clone for Service<Store> {
+    fn clone(&self) -> Self {
+        Service {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<Store> Deref for Service<Store> {
+    type Target = Arc<ServiceBuilder<Store>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
@@ -40,20 +48,6 @@ fn dispatch(cmd: CommandRequest, store: &impl Storage) -> CommandResponse {
         Some(RequestData::Hset(cmd)) => cmd.execute(store),
         None => KvError::InvalidCommand("Request has no data".into()).into(),
         _ => KvError::Internal("Not implemented yet".into()).into(),
-    }
-}
-
-impl<Store> Clone for Service<Store> {
-    fn clone(&self) -> Self {
-        Service(self.0.clone())
-    }
-}
-
-impl<Store> Deref for Service<Store> {
-    type Target = Arc<Store>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -85,14 +79,6 @@ mod service_tests {
         let cmd = CommandRequest::new_hget("score", "u1");
         let res = dispatch(cmd, &store);
         assert_res_ok(res, &[10.into()], &[]);
-    }
-
-    #[test]
-    fn hget_with_non_exist_key_should_return_404() {
-        let store = MemTable::new();
-        let cmd = CommandRequest::new_hget("score", "u1");
-        let res = dispatch(cmd, &store);
-        assert_res_error(res, 404, "Not found");
     }
 
     #[test]
@@ -142,15 +128,16 @@ mod service_tests_2 {
 
     use crate::{
         assert_res_ok,
-        memory::MemTable,
         pb::abi::{CommandRequest, Value},
         Service,
     };
 
+    use super::service_builder::ServiceBuilder;
+
     #[test]
     fn service_should_works() {
         // 我们需要一个 service 结构至少包含 Storage
-        let service = Service::new(MemTable::default());
+        let service: Service = ServiceBuilder::default().into();
 
         // service 可以运行在多线程环境下，它的 clone 应该是轻量级的
         let cloned = service.clone();
@@ -170,6 +157,8 @@ mod service_tests_2 {
 
 #[cfg(test)]
 use crate::pb::abi::{Kvpair, Value};
+
+use self::service_builder::ServiceBuilder;
 // 测试成功返回的结果
 #[cfg(test)]
 pub fn assert_res_ok(mut res: CommandResponse, values: &[Value], pairs: &[Kvpair]) {

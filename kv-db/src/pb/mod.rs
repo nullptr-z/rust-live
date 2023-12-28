@@ -110,6 +110,15 @@ impl From<KvError> for CommandResponse {
     }
 }
 
+impl From<(String, Value)> for Kvpair {
+    fn from(kv: (String, Value)) -> Self {
+        Kvpair {
+            key: kv.0,
+            value: Some(kv.1),
+        }
+    }
+}
+
 impl From<Vec<Kvpair>> for CommandResponse {
     fn from(value: Vec<Kvpair>) -> Self {
         Self {

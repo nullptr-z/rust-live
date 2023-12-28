@@ -5,6 +5,7 @@ use hyper::StatusCode;
 use kv_db::{
     memory::MemTable,
     pb::abi::{CommandRequest, CommandResponse},
+    service_builder::ServiceBuilder,
     Service,
 };
 use tokio::net::TcpListener;
@@ -18,7 +19,7 @@ async fn main() -> Result<()> {
     let listner = TcpListener::bind(addr).await?;
     info!("Listener on {}", addr);
 
-    let server = Service::default();
+    let server: Service = ServiceBuilder::default().into();
 
     loop {
         let (stream, addr) = listner.accept().await?;
