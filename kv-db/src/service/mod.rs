@@ -1,7 +1,10 @@
 mod command_service;
+pub mod notify;
 pub mod service_builder;
 
 use std::{ops::Deref, sync::Arc};
+
+use tracing::info;
 
 use crate::{
     error::KvError,
@@ -21,7 +24,18 @@ pub struct Service<Store = MemTable> {
 
 impl<Store: Storage> Service<Store> {
     pub fn execute(self, cmd: CommandRequest) -> CommandResponse {
-        dispatch(cmd, &self.clone().store)
+        info!("God request: {:?}", &cmd);
+        self.on_received.notify(&cmd);
+        let mut resp = dispatch(cmd, &self.store);
+        info!("Executed response: {:?}", resp);
+        self.on_executed.notify(&resp);
+        self.on_before_send.notify(&mut resp);
+
+        if !self.on_before_send.is_empty() {
+            info!("Modified response: {:?}", resp);
+        }
+
+        resp
     }
 }
 
@@ -158,7 +172,10 @@ mod service_tests_2 {
 #[cfg(test)]
 use crate::pb::abi::{Kvpair, Value};
 
-use self::service_builder::ServiceBuilder;
+use self::{
+    notify::{Notify, NotifyMut},
+    service_builder::ServiceBuilder,
+};
 // 测试成功返回的结果
 #[cfg(test)]
 pub fn assert_res_ok(mut res: CommandResponse, values: &[Value], pairs: &[Kvpair]) {

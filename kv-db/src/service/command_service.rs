@@ -1,9 +1,8 @@
+use super::CommandService;
 use crate::{
     error::KvError,
     pb::abi::{CommandResponse, Hget, Hgetall, Hset, Value},
 };
-
-use super::CommandService;
 
 impl CommandService for Hget {
     fn execute(self, store: &impl crate::Storage) -> CommandResponse {
