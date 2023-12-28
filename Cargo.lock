@@ -742,6 +742,7 @@ dependencies = [
  "prost 0.8.0",
  "prost-build 0.12.3",
  "prost-derive 0.12.3",
+ "sled",
  "thiserror",
  "tokio",
  "tracing",

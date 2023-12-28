@@ -152,3 +152,12 @@ impl From<&str> for Value {
         }
     }
 }
+
+impl From<&[u8]> for Value {
+    fn from(value: &[u8]) -> Self {
+        let str = String::from_utf8_lossy(value);
+        Self {
+            value: Some(value::Value::String(str.into())),
+        }
+    }
+}

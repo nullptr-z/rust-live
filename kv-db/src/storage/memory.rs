@@ -1,3 +1,4 @@
+use super::Storage;
 use crate::{
     error::KvError,
     pb::abi::{Kvpair, Value},
@@ -5,8 +6,7 @@ use crate::{
 };
 use dashmap::{mapref::one::Ref, DashMap};
 
-use super::Storage;
-
+/// Memory DB
 #[derive(Debug, Default, Clone)]
 pub struct MemTable {
     tables: DashMap<String, DashMap<String, Value>>,
@@ -46,7 +46,7 @@ impl Storage for MemTable {
         value: Value,
     ) -> Result<Option<Value>, KvError> {
         let table = self.get_or_create_table(table);
-        Ok(table.insert(key.into(), value.into()))
+        Ok(table.insert(key.into(), value))
     }
 
     fn contains(&self, table: impl Into<String>, key: impl Into<String>) -> Result<bool, KvError> {

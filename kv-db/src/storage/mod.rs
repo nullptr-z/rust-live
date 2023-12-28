@@ -1,4 +1,5 @@
 pub mod memory;
+pub mod sled_db;
 
 use crate::{
     error::KvError,
