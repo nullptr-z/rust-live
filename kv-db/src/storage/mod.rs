@@ -37,10 +37,7 @@ pub trait Storage {
     fn get_all(&self, table: impl Into<String>) -> Result<Vec<Kvpair>, KvError>;
 
     /// 遍历 HashTable，返回 kv pair 的 Iterator
-    fn get_iter(
-        &self,
-        table: impl Into<String>,
-    ) -> Result<Box<dyn Iterator<Item = Kvpair>>, KvError>;
+    fn get_iter(&self, table: impl Into<String>) -> Result<impl Iterator<Item = Kvpair>, KvError>;
 }
 
 /// 提供 Storage iterator，这样 trait 的实现者只需要
@@ -68,23 +65,71 @@ where
     }
 }
 
+trait U8toString<T> {
+    fn u8_to_string(self) -> String;
+}
+
+impl<T> U8toString<T> for T
+where
+    T: AsRef<[u8]>,
+{
+    fn u8_to_string(self) -> String {
+        String::from_utf8_lossy(self.as_ref()).to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{memory::MemTable, *};
+    use pretty_assertions::assert_eq;
 
     #[test]
-    fn memtable_basic_interface_should_work() {
+    pub fn memtable_basic_interface_should_work() {
         let store = MemTable::new();
-        test_basi_interface(store);
+        test_basic_interface(store);
     }
 
     #[test]
-    fn memtable_get_all_should_work() {
+    pub fn memtable_get_all_should_work() {
         let store = MemTable::new();
         test_get_all(store);
     }
 
-    fn test_basi_interface(store: impl Storage) {
+    #[test]
+    pub fn memtable_iter_should_work() {
+        let store = MemTable::new();
+        test_get_iter(store);
+    }
+
+    pub fn test_get_all(store: impl Storage) {
+        store.set("t2", "k1", "v1".into()).unwrap();
+        store.set("t2", "k2", "v2".into()).unwrap();
+        let mut data = store.get_all("t2").unwrap();
+        data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(
+            data,
+            vec![
+                Kvpair::new("k1", "v1".into()),
+                Kvpair::new("k2", "v2".into())
+            ]
+        )
+    }
+
+    pub fn test_get_iter(store: impl Storage) {
+        store.set("t2", "k1", "v1".into()).unwrap();
+        store.set("t2", "k2", "v2".into()).unwrap();
+        let mut data: Vec<_> = store.get_iter("t2").unwrap().collect();
+        data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(
+            data,
+            vec![
+                Kvpair::new("k1", "v1".into()),
+                Kvpair::new("k2", "v2".into())
+            ]
+        )
+    }
+
+    pub fn test_basic_interface(store: impl Storage) {
         // 第一次 set 会创建 table，插入 key 并返回 None（之前没值）
         let v = store.set("t1", "hello", "world".into());
         assert!(v.unwrap().is_none());
@@ -112,39 +157,5 @@ mod tests {
         // del 不存在的 key 或 table 返回 None
         assert_eq!(Ok(None), store.del("t1", "hello1"));
         assert_eq!(Ok(None), store.del("t2", "hello"));
-    }
-
-    fn test_get_all(store: impl Storage) {
-        store.set("t2", "k1", "v1".into()).unwrap();
-        store.set("t2", "k2", "v2".into()).unwrap();
-        let mut data = store.get_all("t2").unwrap();
-        data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        assert_eq!(
-            data,
-            vec![
-                Kvpair::new("k1", "v1".into()),
-                Kvpair::new("k2", "v2".into())
-            ]
-        )
-    }
-
-    fn test_get_iter(store: impl Storage) {
-        store.set("t2", "k1", "v1".into()).unwrap();
-        store.set("t2", "k2", "v2".into()).unwrap();
-        let mut data: Vec<_> = store.get_iter("t2").unwrap().collect();
-        data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        assert_eq!(
-            data,
-            vec![
-                Kvpair::new("k1", "v1".into()),
-                Kvpair::new("k2", "v2".into())
-            ]
-        )
-    }
-
-    #[test]
-    fn memtable_iter_should_work() {
-        let store = MemTable::new();
-        test_get_iter(store);
     }
 }

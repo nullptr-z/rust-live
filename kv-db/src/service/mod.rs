@@ -151,7 +151,7 @@ mod service_tests_2 {
     #[test]
     fn service_should_works() {
         // 我们需要一个 service 结构至少包含 Storage
-        let service: Service = ServiceBuilder::default().into();
+        let service: Service = ServiceBuilder::default().finish();
 
         // service 可以运行在多线程环境下，它的 clone 应该是轻量级的
         let cloned = service.clone();

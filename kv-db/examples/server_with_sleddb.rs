@@ -4,6 +4,7 @@ use futures::{SinkExt, StreamExt};
 use kv_db::{
     pb::abi::{CommandRequest, CommandResponse},
     service_builder::ServiceBuilder,
+    sled_db::SledDB,
     Service,
 };
 use tokio::net::TcpListener;
@@ -17,7 +18,15 @@ async fn main() -> Result<()> {
     let listner = TcpListener::bind(addr).await?;
     info!("Listener on {}", addr);
 
-    let server: Service = ServiceBuilder::default().finish();
+    let server: Service<SledDB> = ServiceBuilder::new(SledDB::new("kv-db/db/kvserve"))
+        .fn_before_send(|cmd| {
+            if cmd.message.is_empty() {
+                cmd.message = "altered. Origin message is empty".into()
+            } else {
+                cmd.message = format!("altered.{}", cmd.message)
+            }
+        })
+        .finish();
 
     loop {
         let (stream, addr) = listner.accept().await?;

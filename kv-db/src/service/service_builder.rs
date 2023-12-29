@@ -45,23 +45,29 @@ impl<Store: Storage> ServiceBuilder<Store> {
         self.on_after_send.push(f);
         self
     }
-}
 
-impl ServiceBuilder<MemTable> {
-    pub fn finish(self) -> Service {
+    pub fn finish(self) -> Service<Store> {
         Service {
             inner: Arc::new(self),
         }
     }
 }
 
-impl<Store> From<ServiceBuilder<Store>> for Service<Store> {
-    fn from(inner: ServiceBuilder<Store>) -> Self {
-        Service {
-            inner: Arc::new(inner),
-        }
-    }
-}
+// impl<Store> From<ServiceBuilder<Store>> for Service<Store> {
+//     fn from(inner: ServiceBuilder<Store>) -> Self {
+//         Service {
+//             inner: Arc::new(inner),
+//         }
+//     }
+// }
+
+// impl ServiceBuilder<MemTable> {
+//     pub fn finish(self) -> Service {
+//         Service {
+//             inner: Arc::new(self),
+//         }
+//     }
+// }
 
 impl Default for ServiceBuilder<MemTable> {
     fn default() -> Self {
