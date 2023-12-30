@@ -7,6 +7,7 @@ use crate::{
 use bytes::{Buf, BufMut, BytesMut};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use prost::Message;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tracing::debug;
 
 // 帧头4字节，Length Prefix Message
@@ -43,10 +44,7 @@ where
             let a = encoder.write_all(&msg_cache);
 
             // done compression.
-            let payload = encoder
-                .finish()
-                .map_err(|e| KvError::IOError(format!("{:?}", e)))?
-                .into_inner();
+            let payload = encoder.finish().to_error()?.into_inner();
             debug!("Encode a frame: size {}({})", size, payload.len());
 
             // pushed the compression length
@@ -72,9 +70,7 @@ where
             // uncompressed
             let mut decoder = GzDecoder::new(&buf[..len]);
             let mut msg_buf = Vec::with_capacity(len * 2);
-            decoder
-                .read_to_end(&mut msg_buf)
-                .map_err(|e| KvError::IOError(format!("{:?}", e)))?;
+            decoder.read_to_end(&mut msg_buf).to_error()?;
             buf.advance(len);
 
             Ok(Self::decode(&msg_buf[..msg_buf.len()])?)
@@ -86,14 +82,47 @@ where
     }
 }
 
+/// reading complete frame from stream
+pub async fn read_fame<S>(stream: &mut S, buf: &mut BytesMut) -> Result<(), KvError>
+where
+    S: AsyncRead + Unpin + Send,
+{
+    let header = stream.read_u32().await.to_error()? as usize;
+    let (len, _compressed) = decode_header(header);
+
+    // ensure buffer sufficient of capacity
+    buf.reserve(Len_Len + len);
+    buf.put_u32(header as _);
+    unsafe {
+        buf.advance_mut(len);
+    }
+    // read all
+    stream.read_exact(&mut buf[Len_Len..]).await.to_error()?;
+
+    Ok(())
+}
+
 impl FrameCoder for CommandRequest {}
 impl FrameCoder for CommandResponse {}
+
+trait IOError<T> {
+    fn to_error(self) -> Result<T, KvError>;
+}
 
 #[inline]
 fn decode_header(header: usize) -> (usize, bool) {
     let compressed = header & COMPRESSIONS_BIT == COMPRESSIONS_BIT;
     let len = header & !COMPRESSIONS_BIT;
     (len, compressed)
+}
+
+impl<T> IOError<T> for Result<T, std::io::Error> {
+    fn to_error(self) -> Result<T, KvError> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(KvError::IOError(format!("{:?}", e))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -144,5 +173,50 @@ mod frame_tests {
         } else {
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod fn_test_of_read_fame {
+    use bytes::BytesMut;
+    use tokio::io::AsyncRead;
+
+    use crate::pb::abi::CommandRequest;
+
+    use super::{read_fame, FrameCoder};
+
+    struct DummyStream {
+        buf: BytesMut,
+    }
+
+    impl AsyncRead for DummyStream {
+        fn poll_read(
+            self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            let len = buf.capacity();
+            let data = self.get_mut().buf.split_to(len);
+            buf.put_slice(&data);
+
+            std::task::Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn read_frame_should_work() {
+        // 模拟simulation a request
+        let mut buf = BytesMut::new();
+        let cmd = CommandRequest::new_hdel("t1", "k2");
+        cmd.encode_frame(&mut buf).unwrap();
+        let mut stream = DummyStream { buf };
+
+        // get request frame form stream
+        let mut data = BytesMut::new();
+        read_fame(&mut stream, &mut data).await.unwrap();
+
+        let cmd1 = CommandRequest::decode_frame(&mut data).unwrap();
+
+        assert_eq!(cmd, cmd1)
     }
 }
