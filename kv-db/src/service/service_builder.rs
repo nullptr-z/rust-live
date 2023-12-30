@@ -61,14 +61,6 @@ impl<Store: Storage> ServiceBuilder<Store> {
 //     }
 // }
 
-// impl ServiceBuilder<MemTable> {
-//     pub fn finish(self) -> Service {
-//         Service {
-//             inner: Arc::new(self),
-//         }
-//     }
-// }
-
 impl Default for ServiceBuilder<MemTable> {
     fn default() -> Self {
         Self {

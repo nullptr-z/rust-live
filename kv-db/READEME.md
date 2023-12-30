@@ -4,3 +4,17 @@
 4. 处理流程中计划加这些 hook：收到客户端的命令后 OnRequestReceived、处理完客户端的命令后 OnRequestExecuted、发送响应之前 BeforeResponseSend、发送响应之后 AfterResponseSend。这样，处理过程中的主要步骤都有事件暴露出去，让我们的 KV server 可以非常灵活，方便调用者在初始化服务的时候注入额外的处理逻辑。
 5. 存储必然需要足够灵活。可以对存储做个 trait 来抽象其基本的行为，一开始可以就只做 MemDB，未来肯定需要有支持持久化的存储。
 6. 需要支持配置，但优先级不高。等基本流程搞定，使用过程中发现足够的痛点，就可以考虑配置文件如何处理了。
+
+# core idea:
+
+- 从 TCPStream 读取 Frame
+- Frame 头部 Header 4 字节包换了数据字节流的长度
+- 其中 Header 首字节位，标识数据流部分是否压缩过
+
+## why
+
+TcpStream：TCP 协议的报文，可以通过自定义封包/解析帧(Frame)，实现自己的上层协议，关于帧长度可以直接计算 buf length，帧类型可以使用 protobuf 来完成
+
+## AsyncReadExt
+
+`tokio::io::util::async_read_ext::AsyncReadExt` 有大量用作读取的异步方法

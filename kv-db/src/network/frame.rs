@@ -1,0 +1,148 @@
+use std::io::{Read, Write};
+
+use crate::{
+    error::KvError,
+    pb::abi::{CommandRequest, CommandResponse},
+};
+use bytes::{Buf, BufMut, BytesMut};
+use flate2::{read::GzDecoder, write::GzEncoder, Compression};
+use prost::Message;
+use tracing::debug;
+
+// 帧头4字节，Length Prefix Message
+pub const Len_Len: usize = 4;
+// 1bit压缩位
+const COMPRESSIONS_BIT: usize = 1 << 31;
+// 长度31bit，所以最大能支持2G大小的frame
+// const MAX_FRAME: usize = 2 * 1024 * 1024 * 1024;
+const MAX_FRAME: usize = 2 << 31 >> 1;
+// 如果payload达到1436字节就做压缩; MTU:1500 - Len_Len:4 - TCP:20 - IP:20 - reserved:20
+const COMPRESSION_LIMIT: usize = 1436;
+
+pub trait FrameCoder
+where
+    Self: Sized + Message + Default,
+{
+    // 将Message封包(encode)成Frame
+    fn encode_frame(&self, buf: &mut BytesMut) -> Result<(), KvError> {
+        // return Length of message
+        let size = self.encoded_len();
+        buf.put_u32(size as _);
+        // 达到限制，压缩它
+        if size >= COMPRESSION_LIMIT {
+            // cache area
+            let mut msg_cache = Vec::with_capacity(size);
+            self.encode(&mut msg_cache)?;
+
+            // clear LPM, later compressed and merge into it
+            let payload = buf.split_off(Len_Len);
+            buf.clear();
+
+            // process compression for gzip
+            let mut encoder = GzEncoder::new(payload.writer(), Compression::default());
+            let a = encoder.write_all(&msg_cache);
+
+            // done compression.
+            let payload = encoder
+                .finish()
+                .map_err(|e| KvError::IOError(format!("{:?}", e)))?
+                .into_inner();
+            debug!("Encode a frame: size {}({})", size, payload.len());
+
+            // pushed the compression length
+            buf.put_u32((payload.len() | COMPRESSIONS_BIT) as _);
+
+            // merge BytesMut into buf
+            buf.unsplit(payload);
+        } else {
+            self.encode(buf)?;
+        }
+
+        Ok(())
+    }
+
+    // 将一个Frame解包(decode)成Message
+    fn decode_frame(buf: &mut BytesMut) -> Result<Self, KvError> {
+        // get 4 byte,And get compressed bit from first bit of it
+        let header = buf.get_u32() as usize;
+        let (len, compressed) = decode_header(header);
+        debug!("Got a frame: msg len {}, compressed {}", len, compressed);
+
+        if compressed {
+            // uncompressed
+            let mut decoder = GzDecoder::new(&buf[..len]);
+            let mut msg_buf = Vec::with_capacity(len * 2);
+            decoder
+                .read_to_end(&mut msg_buf)
+                .map_err(|e| KvError::IOError(format!("{:?}", e)))?;
+            buf.advance(len);
+
+            Ok(Self::decode(&msg_buf[..msg_buf.len()])?)
+        } else {
+            let msg = Self::decode(&buf[..len])?;
+            buf.advance(len);
+            Ok(msg)
+        }
+    }
+}
+
+impl FrameCoder for CommandRequest {}
+impl FrameCoder for CommandResponse {}
+
+#[inline]
+fn decode_header(header: usize) -> (usize, bool) {
+    let compressed = header & COMPRESSIONS_BIT == COMPRESSIONS_BIT;
+    let len = header & !COMPRESSIONS_BIT;
+    (len, compressed)
+}
+
+#[cfg(test)]
+mod frame_tests {
+
+    use anyhow::{Ok, Result};
+    use bytes::{Buf, BufMut, Bytes, BytesMut};
+
+    use crate::{
+        network::frame::COMPRESSION_LIMIT,
+        pb::abi::{CommandRequest, CommandResponse, Value},
+    };
+
+    use super::FrameCoder;
+
+    #[test]
+    fn command_request_encode_decode_should_work() -> Result<()> {
+        let mut buf = BytesMut::new();
+        let cmd = CommandRequest::new_hset("t3", "key3", "test frame".into());
+        cmd.encode_frame(&mut buf)?;
+        let compressed = is_compressed(&buf);
+        assert_eq!(compressed, false);
+
+        let cmd1 = CommandRequest::decode_frame(&mut buf)?;
+        assert_eq!(cmd1, cmd);
+
+        Ok(())
+    }
+
+    #[test]
+    fn command_response_encode_decode_should_work() -> Result<()> {
+        let mut buf = BytesMut::new();
+        let value: Value = Bytes::from(vec![0u8; COMPRESSION_LIMIT + 1]).into();
+        let cmd: CommandResponse = value.into();
+        cmd.encode_frame(&mut buf)?;
+        let compressed = is_compressed(&buf);
+        assert_eq!(compressed, true);
+
+        let cmd1 = CommandResponse::decode_frame(&mut buf)?;
+        assert_eq!(cmd1, cmd);
+
+        Ok(())
+    }
+
+    fn is_compressed(data: &[u8]) -> bool {
+        if let &[v] = &data[..1] {
+            v >> 7 == 1
+        } else {
+            false
+        }
+    }
+}
