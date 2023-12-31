@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
     let value: u32 = rng.gen_range(1..=100);
 
     // 创建一个Hset命令
-    let set_cmd = CommandRequest::new_hset("table1", "k1", format!("value: {}", value).into());
+    let set_cmd = CommandRequest::new_hset("table1", "k1", format!("value: {}", value));
     // let set_cmd2 = CommandRequest::new_hset("table1", "k2", format!("v2: {}", value).into());
     // let get_cmd = CommandRequest::new_hget("table1", "k1");
     // let get_cmd2 = CommandRequest::new_hget("table1", "k2");

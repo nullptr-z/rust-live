@@ -7,10 +7,14 @@ use hyper::StatusCode;
 use crate::error::KvError;
 
 impl CommandRequest {
-    pub fn new_hset(table: impl Into<String>, key: impl Into<String>, value: Value) -> Self {
+    pub fn new_hset(
+        table: impl Into<String>,
+        key: impl Into<String>,
+        value: impl Into<Value>,
+    ) -> Self {
         RequestData::Hset(Hset {
             table: table.into(),
-            pair: Some(Kvpair::new(key, value)),
+            pair: Some(Kvpair::new(key, value.into())),
         })
         .into()
     }

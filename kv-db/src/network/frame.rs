@@ -128,7 +128,7 @@ mod frame_tests {
     #[test]
     fn command_request_encode_decode_should_work() -> Result<()> {
         let mut buf = BytesMut::new();
-        let cmd = CommandRequest::new_hset("t3", "key3", "test frame".into());
+        let cmd = CommandRequest::new_hset("t3", "key3", "test frame");
         cmd.encode_frame(&mut buf)?;
         let compressed = is_compressed(&buf);
         assert_eq!(compressed, false);

@@ -107,7 +107,7 @@ mod builder_tests {
             .fn_after_send(e)
             .finish();
 
-        let res = service.execute(CommandRequest::new_hset("t1", "k1", "v1".into()));
+        let res = service.execute(CommandRequest::new_hset("t1", "k1", "v1"));
         assert_eq!(res.status, StatusCode::CREATED.as_u16() as _);
         assert_eq!(res.message, "");
         assert_eq!(res.values, vec![Value::default()]);

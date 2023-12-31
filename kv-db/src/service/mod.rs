@@ -1,17 +1,14 @@
 mod command_service;
 pub mod notify;
 pub mod service_builder;
-
-use std::{ops::Deref, sync::Arc};
-
-use tracing::info;
-
 use crate::{
     error::KvError,
     memory::MemTable,
     pb::abi::{command_request::RequestData, CommandRequest, CommandResponse},
     Storage,
 };
+use std::{ops::Deref, sync::Arc};
+use tracing::info;
 
 pub trait CommandService {
     fn execute(self, store: &impl Storage) -> CommandResponse;
@@ -77,7 +74,7 @@ mod service_tests {
     #[test]
     fn hset_should_work() {
         let store = MemTable::new();
-        let cmd = CommandRequest::new_hset("t1", "hello", "world".into());
+        let cmd = CommandRequest::new_hset("t1", "hello", "world");
         let res = dispatch(cmd.clone(), &store);
         assert_res_ok(res, &[Value::default()], &[]);
 
@@ -88,7 +85,7 @@ mod service_tests {
     #[test]
     fn hget_should_work() {
         let store = MemTable::new();
-        let cmd = CommandRequest::new_hset("score", "u1", 10.into());
+        let cmd = CommandRequest::new_hset("score", "u1", 10);
         dispatch(cmd, &store);
         let cmd = CommandRequest::new_hget("score", "u1");
         let res = dispatch(cmd, &store);
@@ -99,10 +96,10 @@ mod service_tests {
     fn hgetall_should_work() {
         let store = MemTable::new();
         let cmds = vec![
-            CommandRequest::new_hset("score", "u1", 10.into()),
-            CommandRequest::new_hset("score", "u2", 8.into()),
-            CommandRequest::new_hset("score", "u3", 11.into()),
-            CommandRequest::new_hset("score", "u1", 6.into()),
+            CommandRequest::new_hset("score", "u1", 10),
+            CommandRequest::new_hset("score", "u2", 8),
+            CommandRequest::new_hset("score", "u3", 11),
+            CommandRequest::new_hset("score", "u1", 6),
         ];
         for cmd in cmds {
             dispatch(cmd, &store);
@@ -158,7 +155,7 @@ mod service_tests_2 {
 
         // 创建一个线程，在 table t1 中写入 k1, v1
         let handle = thread::spawn(move || {
-            let res = cloned.execute(CommandRequest::new_hset("t1", "k1", "v1".into()));
+            let res = cloned.execute(CommandRequest::new_hset("t1", "k1", "v1"));
             assert_res_ok(res, &[Value::default()], &[]);
         });
         handle.join().unwrap();
