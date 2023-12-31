@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use crate::{
-    error::KvError,
+    error::{IOError, KvError},
     pb::abi::{CommandRequest, CommandResponse},
 };
 use bytes::{Buf, BufMut, BytesMut};
@@ -105,10 +105,6 @@ where
 impl FrameCoder for CommandRequest {}
 impl FrameCoder for CommandResponse {}
 
-trait IOError<T> {
-    fn to_error(self) -> Result<T, KvError>;
-}
-
 #[inline]
 fn decode_header(header: usize) -> (usize, bool) {
     let compressed = header & COMPRESSIONS_BIT == COMPRESSIONS_BIT;
@@ -116,20 +112,11 @@ fn decode_header(header: usize) -> (usize, bool) {
     (len, compressed)
 }
 
-impl<T> IOError<T> for Result<T, std::io::Error> {
-    fn to_error(self) -> Result<T, KvError> {
-        match self {
-            Ok(v) => Ok(v),
-            Err(e) => Err(KvError::IOError(format!("{:?}", e))),
-        }
-    }
-}
-
 #[cfg(test)]
 mod frame_tests {
 
     use anyhow::{Ok, Result};
-    use bytes::{Buf, BufMut, Bytes, BytesMut};
+    use bytes::{Bytes, BytesMut};
 
     use crate::{
         network::frame::COMPRESSION_LIMIT,

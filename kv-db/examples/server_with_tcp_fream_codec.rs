@@ -19,9 +19,8 @@ async fn main() -> Result<()> {
         info!("Client {:?} connect", addr);
         let svc = service.clone();
         tokio::spawn(async move {
-            // 使用 Length Prefix Message封包
-            let mut stream = Framed::new(stream, LengthDelimitedCodec::new());
             // 自动解包LPM
+            let mut stream = Framed::new(stream, LengthDelimitedCodec::new());
             while let Some(Ok(mut buf)) = stream.next().await {
                 let cmd = CommandRequest::decode(buf.as_ref()).unwrap();
                 info!("got a new cmd request: {:?}", cmd);

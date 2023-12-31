@@ -23,3 +23,16 @@ pub enum KvError {
     #[error("Internal error: {0}")]
     Internal(String),
 }
+
+pub(crate) trait IOError<T> {
+    fn to_error(self) -> Result<T, KvError>;
+}
+
+impl<T> IOError<T> for Result<T, std::io::Error> {
+    fn to_error(self) -> Result<T, KvError> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(KvError::IOError(format!("{:?}", e))),
+        }
+    }
+}

@@ -23,7 +23,7 @@ pub struct Service<Store = MemTable> {
 }
 
 impl<Store: Storage> Service<Store> {
-    pub fn execute(self, cmd: CommandRequest) -> CommandResponse {
+    pub fn execute(&self, cmd: CommandRequest) -> CommandResponse {
         info!("God request: {:?}", &cmd);
         self.on_received.notify(&cmd);
         let mut resp = dispatch(cmd, &self.store);
