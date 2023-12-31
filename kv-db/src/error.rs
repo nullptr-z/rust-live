@@ -1,5 +1,6 @@
 use crate::pb::abi::Value;
 use thiserror::Error;
+use tokio_rustls::{rustls::TLSError, webpki::InvalidDNSNameError};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum KvError {
@@ -22,6 +23,15 @@ pub enum KvError {
     // IOError(#[from] std::io::Error),
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("unsupported {0} {1}")]
+    CertificateParseError(String, String),
+
+    #[error("TLSError")]
+    TLSError(#[from] TLSError),
+
+    #[error("InvalidDNSNameError")]
+    InvalidDNSNameError(#[from] InvalidDNSNameError),
 }
 
 pub(crate) trait IOError<T> {
@@ -33,6 +43,19 @@ impl<T> IOError<T> for Result<T, std::io::Error> {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(KvError::IOError(format!("{:?}", e))),
+        }
+    }
+}
+
+pub(crate) trait CertError<T> {
+    fn to_error(self, key: impl Into<String>, value: impl Into<String>) -> Result<T, KvError>;
+}
+
+impl<T> CertError<T> for Result<T, ()> {
+    fn to_error(self, key: impl Into<String>, value: impl Into<String>) -> Result<T, KvError> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(KvError::CertificateParseError(key.into(), value.into())),
         }
     }
 }

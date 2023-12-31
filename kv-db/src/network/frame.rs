@@ -1,5 +1,3 @@
-use std::io::{Read, Write};
-
 use crate::{
     error::{IOError, KvError},
     pb::abi::{CommandRequest, CommandResponse},
@@ -7,6 +5,7 @@ use crate::{
 use bytes::{Buf, BufMut, BytesMut};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use prost::Message;
+use std::io::{Read, Write};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tracing::debug;
 
@@ -20,6 +19,8 @@ const MAX_FRAME: usize = 2 << 31 >> 1;
 // 如果payload达到1436字节就做压缩; MTU:1500 - Len_Len:4 - TCP:20 - IP:20 - reserved:20
 const COMPRESSION_LIMIT: usize = 1436;
 
+/// 实际应用产品开发的时候，可以直接使用`tokio_util::codec::LengthDelimitedCodec`，功能几乎一样的
+/// [LengthDelimitedCodec](https://docs.rs/tokio-util/0.6.8/tokio_util/codec/length_delimited/index.html)
 pub trait FrameCoder
 where
     Self: Sized + Message + Default,
@@ -41,7 +42,7 @@ where
 
             // process compression for gzip
             let mut encoder = GzEncoder::new(payload.writer(), Compression::default());
-            let a = encoder.write_all(&msg_cache);
+            encoder.write_all(&msg_cache).to_error()?;
 
             // done compression.
             let payload = encoder.finish().to_error()?.into_inner();
@@ -82,6 +83,9 @@ where
     }
 }
 
+impl FrameCoder for CommandRequest {}
+impl FrameCoder for CommandResponse {}
+
 /// reading complete frame from stream
 pub async fn read_fame<S>(stream: &mut S, buf: &mut BytesMut) -> Result<(), KvError>
 where
@@ -101,9 +105,6 @@ where
 
     Ok(())
 }
-
-impl FrameCoder for CommandRequest {}
-impl FrameCoder for CommandResponse {}
 
 #[inline]
 fn decode_header(header: usize) -> (usize, bool) {

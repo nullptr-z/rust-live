@@ -1,4 +1,6 @@
 mod frame;
+mod tls;
+
 use self::frame::{read_fame, FrameCoder};
 use crate::{
     error::{IOError, KvError},
