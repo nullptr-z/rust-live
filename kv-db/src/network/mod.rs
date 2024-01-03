@@ -1,5 +1,5 @@
 mod frame;
-mod tls;
+pub mod tls;
 
 use self::frame::{read_fame, FrameCoder};
 use crate::{
