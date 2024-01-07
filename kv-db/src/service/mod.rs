@@ -1,6 +1,8 @@
 mod command_service;
 pub mod notify;
 pub mod service_builder;
+pub mod topic;
+
 use crate::{
     error::KvError,
     memory::MemTable,

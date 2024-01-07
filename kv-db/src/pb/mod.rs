@@ -134,6 +134,16 @@ impl From<Vec<Kvpair>> for CommandResponse {
     }
 }
 
+impl From<i64> for CommandResponse {
+    fn from(value: i64) -> Self {
+        Self {
+            status: StatusCode::OK.as_u16() as _,
+            values: vec![value.into()],
+            ..Default::default()
+        }
+    }
+}
+
 impl From<i64> for Value {
     fn from(value: i64) -> Self {
         Self {
