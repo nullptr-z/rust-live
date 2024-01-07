@@ -1,6 +1,5 @@
 use crate::error::{CertError, IOError, KvError};
-#[warn(unused_imports)]
-use anyhow::{Ok as _AnyOk, Result};
+use anyhow::Result;
 use std::io::Cursor;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};

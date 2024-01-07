@@ -169,27 +169,9 @@ mod fn_test_of_read_fame {
     use bytes::BytesMut;
     use tokio::io::AsyncRead;
 
-    use crate::pb::abi::CommandRequest;
+    use crate::{pb::abi::CommandRequest, test_utils::DummyStream};
 
     use super::{read_fame, FrameCoder};
-
-    struct DummyStream {
-        buf: BytesMut,
-    }
-
-    impl AsyncRead for DummyStream {
-        fn poll_read(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-            buf: &mut tokio::io::ReadBuf<'_>,
-        ) -> std::task::Poll<std::io::Result<()>> {
-            let len = buf.capacity();
-            let data = self.get_mut().buf.split_to(len);
-            buf.put_slice(&data);
-
-            std::task::Poll::Ready(Ok(()))
-        }
-    }
 
     #[tokio::test]
     async fn read_frame_should_work() {

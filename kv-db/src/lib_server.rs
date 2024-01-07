@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kv_db::sled_db::SledDB;
 use kv_db::tls::TlsServerAcceptor;
-use kv_db::{service_builder::ServiceBuilder, PostServerStream};
+use kv_db::{service_builder::ServiceBuilder, ProstServerStream};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
         // 使用TLS协议包装TCP
         let tls_stream = tls.accept(tcp_stream).await?;
         // 使用Post序列化数据流
-        let stream = PostServerStream::new(tls_stream, service.clone());
+        let stream = ProstServerStream::new(tls_stream, service.clone());
         tokio::spawn(async move { stream.process().await });
     }
 }

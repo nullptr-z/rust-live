@@ -2,30 +2,72 @@ pub mod stream;
 pub mod tls;
 
 mod frame;
-use std::ops::{Deref, DerefMut};
-
-use self::{
-    frame::{read_fame, FrameCoder},
-    stream::ProstStream,
-};
+use self::frame::{read_fame, FrameCoder};
 use crate::{
     error::{IOError, KvError},
     pb::abi::{CommandRequest, CommandResponse},
     Service, Storage,
 };
 use bytes::BytesMut;
-use futures::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::info;
 
 /// S: 各种协议。protocol: TPC UDP WS HTTP TLS and Customize
-pub struct ProstServerStream<S, DB> {
-    stream: ProstStream<S, CommandRequest, CommandResponse>,
-    service: Service<DB>,
+pub struct ProstServerStream<S, D> {
+    stream: S,
+    service: Service<D>,
 }
 
 pub struct ProstClientStream<S> {
-    stream: ProstStream<S, CommandResponse, CommandRequest>,
+    stream: S,
+}
+
+impl<S, F, D> ProstStreams<S, F> for ProstServerStream<S, D>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+    F: FrameCoder,
+{
+    fn get_stream(&mut self) -> &mut S {
+        &mut self.stream
+    }
+}
+
+impl<S, F> ProstStreams<S, F> for ProstClientStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+    F: FrameCoder,
+{
+    fn get_stream(&mut self) -> &mut S {
+        &mut self.stream
+    }
+}
+
+trait ProstStreams<S, F>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+    F: FrameCoder,
+{
+    // send message package
+    async fn send(&mut self, msg: F) -> Result<(), KvError> {
+        let mut buf = BytesMut::new();
+        msg.encode_frame(&mut buf)?;
+        let encode = buf.freeze();
+        self.get_stream()
+            .write_all(encode.as_ref())
+            .await
+            .to_error()?;
+        Ok(())
+    }
+
+    // receiver response
+    async fn recv(&mut self) -> Result<F, KvError> {
+        let mut buf = BytesMut::new();
+        let stream = &mut self.get_stream();
+        read_fame(stream, &mut buf).await?;
+        F::decode_frame(&mut buf)
+    }
+
+    fn get_stream(&mut self) -> &mut S;
 }
 
 impl<S, D> ProstServerStream<S, D>
@@ -34,17 +76,14 @@ where
     D: Storage,
 {
     pub fn new(stream: S, service: Service<D>) -> Self {
-        Self {
-            stream: ProstStream::new(stream),
-            service,
-        }
+        Self { stream, service }
     }
 
     pub async fn process(mut self) -> Result<(), KvError> {
-        while let Some(Ok(cmd)) = self.stream.next().await {
+        while let Ok(cmd) = self.recv().await {
             info!("Got a new command: {:?}", cmd);
             let res = self.service.execute(cmd);
-            self.stream.send(res).await?;
+            self.send(res).await?;
         }
 
         Ok(())
@@ -56,18 +95,13 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send,
 {
     pub fn new(stream: S) -> Self {
-        Self {
-            stream: ProstStream::new(stream),
-        }
+        Self { stream }
     }
 
     pub async fn execute(&mut self, cmd: CommandRequest) -> Result<CommandResponse, KvError> {
-        self.stream.send(cmd).await?;
+        self.send(cmd).await?;
 
-        match self.stream.next().await {
-            Some(v) => v,
-            None => Err(KvError::Internal("Didn't get any response".into())),
-        }
+        Ok(self.recv().await?)
     }
 }
 
