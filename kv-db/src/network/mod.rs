@@ -1,3 +1,4 @@
+pub mod multiplex;
 pub mod stream;
 pub mod tls;
 

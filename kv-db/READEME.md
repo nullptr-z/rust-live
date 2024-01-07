@@ -18,3 +18,14 @@ TcpStream：TCP 协议的报文，可以通过自定义封包/解析帧(Frame)�
 ## AsyncReadExt
 
 `tokio::io::util::async_read_ext::AsyncReadExt` 有大量用作读取的异步方法
+
+## 添加 Pub、Sub 操作
+
+需要引入多路复用的协议，http2 太重了，
+
+yamux: 双向流的多路复用协议，机制简单，类似 http 的多路复用
+
+## 待完成
+
+[] tokio-yamux 替代 yamux
+[] 实现 stream 、Sink

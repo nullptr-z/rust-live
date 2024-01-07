@@ -14,6 +14,10 @@ message CommandRequest {
     Hmdel hmdel = 7;
     Hexist hexist = 8;
     Hmexist hmexist = 9;
+    // pub/sub/unsub
+    Subscribe subscribe=10;
+    Unsubscribe  unsubscribe=11;
+    Publish publish=12;
   }
 }
 
@@ -97,4 +101,21 @@ message Hexist {
 message Hmexist {
   string table = 1;
   repeated string keys = 2;
+}
+
+// 订阅某个主题；订阅成功，第一次返回id
+message Subscribe {
+  string topic=1;
+}
+
+// 取消订阅
+message Unsubscribe {
+  string topic=1;
+  uint32 id =2;
+}
+
+// 发布数据到某个主题
+message Publish {
+  string topic=1;
+  repeated Value data=2;
 }
