@@ -70,7 +70,7 @@ where
 }
 
 // 调用Send()时会把 Out 发送出去
-impl<S, In, Out> Sink<Out> for ProstStream<S, In, Out>
+impl<S, In, Out> Sink<&Out> for ProstStream<S, In, Out>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send,
     In: Unpin + Send,
@@ -83,7 +83,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn start_send(self: Pin<&mut Self>, item: Out) -> Result<(), Self::Error> {
+    fn start_send(self: Pin<&mut Self>, item: &Out) -> Result<(), Self::Error> {
         let this = self.get_mut();
         item.encode_frame(&mut this.wbuf)?;
         Ok(())
@@ -140,7 +140,7 @@ mod stream_tests {
         let stream = DummyStream { buf };
         let mut stream = ProstStream::<_, CommandRequest, CommandRequest>::new(stream);
         let cmd = CommandRequest::new_hdel("t1", "k1");
-        stream.send(cmd.to_owned()).await?;
+        stream.send(&cmd.to_owned()).await?;
         if let Some(Ok(s)) = stream.next().await {
             assert_eq!(s, cmd);
         } else {

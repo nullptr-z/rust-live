@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use anyhow::Result;
 use async_prost::AsyncProstStream;
 use futures::{SinkExt, StreamExt};
@@ -30,7 +32,8 @@ async fn main() -> Result<()> {
                 AsyncProstStream::<_, CommandRequest, CommandResponse, _>::from(stream).for_async();
             while let Some(Ok(msg)) = service.next().await {
                 info!("Got a new command {:?}", msg);
-                let resp = svc.clone().execute(msg.into());
+                let resp = svc.clone().execute(msg.into()).next().await.unwrap();
+                let resp = resp.as_ref().to_owned();
                 info!("execute command response {:?}", resp);
                 service.send(resp).await.unwrap();
             }

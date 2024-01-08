@@ -24,8 +24,9 @@ async fn main() -> Result<()> {
             while let Some(Ok(mut buf)) = stream.next().await {
                 let cmd = CommandRequest::decode(buf.as_ref()).unwrap();
                 info!("got a new cmd request: {:?}", cmd);
-                let resp = svc.clone().execute(cmd);
                 buf.clear();
+                let resp = svc.clone().execute(cmd).next().await.unwrap();
+                let resp = resp.as_ref().to_owned();
                 resp.encode(&mut buf).unwrap();
                 stream.send(buf.freeze()).await.unwrap();
             }

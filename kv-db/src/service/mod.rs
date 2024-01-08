@@ -11,6 +11,7 @@ use crate::{
     Storage,
 };
 use command_service::*;
+use futures::{stream, Stream};
 use std::{ops::Deref, sync::Arc};
 use topic_service::*;
 use tracing::info;
@@ -22,13 +23,13 @@ pub struct Service<Store = MemTable> {
 }
 
 impl<Store: Storage> Service<Store> {
-    pub fn execute(&self, cmd: CommandRequest) -> CommandResponse {
+    pub fn execute(&self, cmd: CommandRequest) -> impl Stream<Item = Arc<CommandResponse>> + Send {
         info!("God request: {:?}", &cmd);
         self.on_received.notify(&cmd);
         let mut resp = dispatch(cmd.clone(), &self.store);
         if resp == CommandResponse::default() {
             // TODO：这个方法的响应需要改了
-            dispatch_stream(cmd, self.broadcaster.clone());
+            dispatch_stream(cmd, self.broadcaster.clone())
         } else {
             info!("Executed response: {:?}", resp);
             self.on_executed.notify(&resp);
@@ -37,9 +38,8 @@ impl<Store: Storage> Service<Store> {
             if !self.on_before_send.is_empty() {
                 info!("Modified response: {:?}", resp);
             }
+            Box::pin(stream::once(async { Arc::new(resp) }))
         }
-
-        resp
     }
 }
 
@@ -169,6 +169,8 @@ mod service_tests {
 mod service_tests_2 {
     use std::thread;
 
+    use futures::StreamExt;
+
     use crate::{
         assert_res_ok,
         pb::abi::{CommandRequest, Value},
@@ -177,8 +179,8 @@ mod service_tests_2 {
 
     use super::service_builder::ServiceBuilder;
 
-    #[test]
-    fn service_should_works() {
+    #[tokio::test]
+    async fn service_should_works() {
         // 我们需要一个 service 结构至少包含 Storage
         let service: Service = ServiceBuilder::default().finish();
 
@@ -186,15 +188,19 @@ mod service_tests_2 {
         let cloned = service.clone();
 
         // 创建一个线程，在 table t1 中写入 k1, v1
-        let handle = thread::spawn(move || {
-            let res = cloned.execute(CommandRequest::new_hset("t1", "k1", "v1"));
-            assert_res_ok(res, &[Value::default()], &[]);
+        let handle = thread::spawn(move || async move {
+            let mut res = cloned.execute(CommandRequest::new_hset("t1", "k1", "v1"));
+            let binding = res.next().await.unwrap();
+            let res = binding.as_ref();
+            assert_res_ok(res.clone(), &[Value::default()], &[]);
         });
-        handle.join().unwrap();
+        handle.join().unwrap().await;
 
         // 在当前线程下读取 table t1 的 k1，应该返回 v1
-        let res = service.execute(CommandRequest::new_hget("t1", "k1"));
-        assert_res_ok(res, &["v1".into()], &[]);
+        let mut res = service.execute(CommandRequest::new_hget("t1", "k1"));
+        let binding = res.next().await.unwrap();
+        let res = binding.as_ref();
+        assert_res_ok(res.clone(), &["v1".into()], &[]);
     }
 }
 

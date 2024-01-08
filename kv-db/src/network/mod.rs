@@ -1,21 +1,16 @@
+mod frame;
 pub mod multiplex;
 pub mod stream;
 pub mod tls;
 
-mod frame;
-use std::ops::{Deref, DerefMut};
-
-use self::{
-    frame::{read_fame, FrameCoder},
-    stream::ProstStream,
-};
+use self::stream::ProstStream;
 use crate::{
-    error::{IOError, KvError},
+    error::KvError,
     pb::abi::{CommandRequest, CommandResponse},
     Service, Storage,
 };
 use futures::{SinkExt, StreamExt};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::info;
 
 /// S: 各种协议。protocol: TPC UDP WS HTTP TLS and Customize
@@ -43,8 +38,11 @@ where
     pub async fn process(mut self) -> Result<(), KvError> {
         while let Some(Ok(cmd)) = self.stream.next().await {
             info!("Got a new command: {:?}", cmd);
-            let res = self.service.execute(cmd);
-            self.stream.send(res).await?;
+            let mut res = self.service.execute(cmd);
+            // let res = res.next().await.unwrap().as_ref().to_owned();
+            while let Some(data) = res.next().await {
+                self.stream.send(&data).await?;
+            }
         }
 
         Ok(())
@@ -62,7 +60,7 @@ where
     }
 
     pub async fn execute(&mut self, cmd: CommandRequest) -> Result<CommandResponse, KvError> {
-        self.stream.send(cmd).await?;
+        self.stream.send(&cmd).await?;
 
         match self.stream.next().await {
             Some(v) => v,

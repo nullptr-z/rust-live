@@ -77,6 +77,7 @@ impl Default for ServiceBuilder<MemTable> {
 #[cfg(test)]
 mod builder_tests {
     use hyper::StatusCode;
+    use tokio_stream::StreamExt;
     use tracing::info;
 
     use crate::{
@@ -85,8 +86,8 @@ mod builder_tests {
         Service,
     };
 
-    #[test]
-    fn event_registration_should_work() {
+    #[tokio::test]
+    async fn event_registration_should_work() {
         fn b(cmd: &CommandRequest) {
             info!("Got {:?}", cmd);
         }
@@ -108,7 +109,8 @@ mod builder_tests {
             .fn_after_send(e)
             .finish();
 
-        let res = service.execute(CommandRequest::new_hset("t1", "k1", "v1"));
+        let mut res = service.execute(CommandRequest::new_hset("t1", "k1", "v1"));
+        let res = res.next().await.unwrap().as_ref().to_owned();
         assert_eq!(res.status, StatusCode::CREATED.as_u16() as _);
         assert_eq!(res.message, "");
         assert_eq!(res.values, vec![Value::default()]);
