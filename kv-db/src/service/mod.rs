@@ -2,6 +2,7 @@ mod command_service;
 pub mod notify;
 pub mod service_builder;
 pub mod topic;
+pub mod topic_service;
 
 use crate::{
     error::KvError,
@@ -9,29 +10,33 @@ use crate::{
     pb::abi::{command_request::RequestData, CommandRequest, CommandResponse},
     Storage,
 };
+use command_service::*;
 use std::{ops::Deref, sync::Arc};
+use topic_service::*;
 use tracing::info;
-
-pub trait CommandService {
-    fn execute(self, store: &impl Storage) -> CommandResponse;
-}
 
 /// 可以跨线程，可以调用 execute 来执行某个 CommandRequest 命令，返回 CommandResponse。
 pub struct Service<Store = MemTable> {
     inner: Arc<ServiceBuilder<Store>>,
+    broadcaster: Arc<BroadCaster>,
 }
 
 impl<Store: Storage> Service<Store> {
     pub fn execute(&self, cmd: CommandRequest) -> CommandResponse {
         info!("God request: {:?}", &cmd);
         self.on_received.notify(&cmd);
-        let mut resp = dispatch(cmd, &self.store);
-        info!("Executed response: {:?}", resp);
-        self.on_executed.notify(&resp);
-        self.on_before_send.notify(&mut resp);
+        let mut resp = dispatch(cmd.clone(), &self.store);
+        if resp == CommandResponse::default() {
+            // TODO：这个方法的响应需要改了
+            dispatch_stream(cmd, self.broadcaster.clone());
+        } else {
+            info!("Executed response: {:?}", resp);
+            self.on_executed.notify(&resp);
+            self.on_before_send.notify(&mut resp);
 
-        if !self.on_before_send.is_empty() {
-            info!("Modified response: {:?}", resp);
+            if !self.on_before_send.is_empty() {
+                info!("Modified response: {:?}", resp);
+            }
         }
 
         resp
@@ -42,6 +47,7 @@ impl<Store> Clone for Service<Store> {
     fn clone(&self) -> Self {
         Service {
             inner: self.inner.clone(),
+            broadcaster: self.broadcaster.clone(),
         }
     }
 }
@@ -54,13 +60,37 @@ impl<Store> Deref for Service<Store> {
     }
 }
 
+/// 从 Request 中得到 Response，目前处理所有 HGET/HSET/HGETALL
 fn dispatch(cmd: CommandRequest, store: &impl Storage) -> CommandResponse {
     match cmd.request_data {
         Some(RequestData::Hget(cmd)) => cmd.execute(store),
         Some(RequestData::Hgetall(cmd)) => cmd.execute(store),
         Some(RequestData::Hset(cmd)) => cmd.execute(store),
         None => KvError::InvalidCommand("Request has no data".into()).into(),
-        _ => KvError::Internal("Not implemented yet".into()).into(),
+        // 没有做任何处理，尝试让之后的 dispatch_stream 处理
+        _ => CommandResponse::default(),
+        // _ => KvError::Internal("Not implemented yet".into()).into(),
+    }
+}
+
+// fn dispatch_stream(
+//     cmd: CommandRequest,
+//     topic: impl Topic,
+// ) -> impl Stream<Item = Arc<CommandResponse>> + Send {
+//     match cmd.request_data {
+//         Some(RequestData::Subscribe(cmd)) => cmd.execute(topic),
+//         Some(RequestData::Unsubscribe(cmd)) => cmd.execute(topic),
+//         Some(RequestData::Publish(cmd)) => cmd.execute(topic),
+//         _ => unreachable!(), // 走到这里说明代码逻辑有问题，尽早改了才是
+//     }
+// }
+
+fn dispatch_stream(cmd: CommandRequest, topic: impl Topic) -> StreamingResponse {
+    match cmd.request_data {
+        Some(RequestData::Subscribe(cmd)) => Box::pin(cmd.execute(topic)),
+        Some(RequestData::Unsubscribe(cmd)) => Box::pin(cmd.execute(topic)),
+        Some(RequestData::Publish(cmd)) => Box::pin(cmd.execute(topic)),
+        _ => unreachable!(), // 走到这里说明代码逻辑有问题，尽早改了才是
     }
 }
 
@@ -174,6 +204,7 @@ use crate::pb::abi::{Kvpair, Value};
 use self::{
     notify::{Notify, NotifyMut},
     service_builder::ServiceBuilder,
+    topic::{BroadCaster, Topic},
 };
 // 测试成功返回的结果
 #[cfg(test)]

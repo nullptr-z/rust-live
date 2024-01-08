@@ -133,11 +133,9 @@ mod topic_test {
         broad.clone().publish(lobby, Arc::new(value.clone().into()));
 
         // subscription 应该能收到 publish 的数据
-        // let binding = stream1.recv().await.unwrap();
-        // let id1: i64 = binding.as_ref().try_into().unwrap();
-        // let binding = stream2.recv().await.unwrap();
-        // let id2 = binding.as_ref();
-        // assert!(id1 != id2);
+        let id1: i64 = stream1.recv().await.unwrap().as_ref().try_into().unwrap();
+        let id2: i64 = stream2.recv().await.unwrap().as_ref().try_into().unwrap();
+        assert!(id1 != id2);
 
         let res1 = stream1.recv().await.unwrap();
         let res2 = stream2.recv().await.unwrap();
@@ -145,14 +143,14 @@ mod topic_test {
         assert_res_ok(res1.as_ref().clone(), &[value.clone()], &[]);
 
         // 如果 subscription 取消订阅，则收不到新数据
-        // broad.clone().unsubscript(lobby, id1 as _);
+        broad.clone().unsubscript(lobby, id1 as _);
 
         // // 再一次发布
-        // let value: Value = "world".into();
-        // broad.clone().publish(lobby, Arc::new(value.into()));
+        let value: Value = "world".into();
+        broad.clone().publish(lobby, Arc::new(value.clone().into()));
 
-        // assert!(stream1.recv().await.is_none());
-        // let res2 = stream2.recv().await.unwrap();
-        // assert_res_ok(res1, &[value.clone()], &[]);
+        assert!(stream1.recv().await.is_none());
+        let res2 = stream2.recv().await.unwrap();
+        assert_res_ok(res2.as_ref().clone(), &[value], &[]);
     }
 }

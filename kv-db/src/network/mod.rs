@@ -14,7 +14,6 @@ use crate::{
     pb::abi::{CommandRequest, CommandResponse},
     Service, Storage,
 };
-use bytes::BytesMut;
 use futures::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::info;

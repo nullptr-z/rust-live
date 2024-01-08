@@ -51,6 +51,14 @@ impl CommandRequest {
     }
 }
 
+impl CommandResponse {
+    pub fn ok() -> Self {
+        let mut cmd = CommandResponse::default();
+        cmd.status = StatusCode::OK.as_u16() as _;
+        cmd
+    }
+}
+
 impl Kvpair {
     pub fn new(key: impl Into<String>, value: Value) -> Self {
         Self {
@@ -91,6 +99,16 @@ impl From<Value> for CommandResponse {
         Self {
             status: StatusCode::OK.as_u16() as _,
             values: vec![value],
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Vec<Value>> for CommandResponse {
+    fn from(values: Vec<Value>) -> Self {
+        Self {
+            status: StatusCode::OK.as_u16() as _,
+            values,
             ..Default::default()
         }
     }
@@ -152,6 +170,17 @@ impl From<i64> for Value {
     }
 }
 
+impl TryFrom<&Value> for i64 {
+    type Error = KvError;
+
+    fn try_from(v: &Value) -> Result<Self, Self::Error> {
+        match v.value {
+            Some(value::Value::Integer(i)) => Ok(i),
+            _ => Err(KvError::ConvertError(v.clone(), "Integer")),
+        }
+    }
+}
+
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Self {
@@ -188,5 +217,25 @@ impl From<Bytes> for Value {
 impl<const N: usize> From<&[u8; N]> for Value {
     fn from(buf: &[u8; N]) -> Self {
         Bytes::copy_from_slice(&buf[..]).into()
+    }
+}
+
+impl TryFrom<&CommandResponse> for i64 {
+    type Error = KvError;
+
+    fn try_from(value: &CommandResponse) -> Result<Self, Self::Error> {
+        if value.status != StatusCode::OK.as_u16() as u32 {
+            return Err(KvError::ConvertError(
+                value.values[0].clone(),
+                "CommandResponse",
+            ));
+        }
+        match value.values.get(0) {
+            Some(v) => v.try_into(),
+            None => Err(KvError::ConvertError(
+                value.values[0].clone(),
+                "CommandResponse",
+            )),
+        }
     }
 }

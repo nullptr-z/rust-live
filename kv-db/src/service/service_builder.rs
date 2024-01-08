@@ -49,6 +49,7 @@ impl<Store: Storage> ServiceBuilder<Store> {
     pub fn finish(self) -> Service<Store> {
         Service {
             inner: Arc::new(self),
+            broadcaster: Default::default(),
         }
     }
 }
