@@ -1,8 +1,10 @@
 use anyhow::Result;
+use kv_db::multiplex::YamuxCtrl;
 use kv_db::sled_db::SledDB;
 use kv_db::tls::TlsServerAcceptor;
 use kv_db::{service_builder::ServiceBuilder, ProstServerStream};
 use tokio::net::TcpListener;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::info;
 
 #[tokio::main]
@@ -24,8 +26,15 @@ async fn main() -> Result<()> {
         info!("Clietn {:?} connected", addr);
         // 使用TLS协议包装TCP
         let tls_stream = tls.accept(tcp_stream).await?;
-        // 使用Post序列化数据流
-        let stream = ProstServerStream::new(tls_stream, service.clone());
-        tokio::spawn(async move { stream.process().await });
+        let service = service.clone();
+        YamuxCtrl::new_server(tls_stream, None, move |stream| {
+            // 使用Post序列化数据流
+            let stream = ProstServerStream::new(stream.compat(), service.clone());
+            // tokio::spawn(async move { stream.process().await });
+            async move {
+                stream.process().await.unwrap();
+                Ok(())
+            }
+        });
     }
 }

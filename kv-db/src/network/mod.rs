@@ -60,7 +60,7 @@ where
         }
     }
 
-    pub async fn execute(&mut self, cmd: CommandRequest) -> Result<CommandResponse, KvError> {
+    pub async fn execute(&mut self, cmd: &CommandRequest) -> Result<CommandResponse, KvError> {
         self.stream.send(&cmd).await?;
 
         match self.stream.next().await {
@@ -98,14 +98,14 @@ mod tests {
 
         // 发送 HSET，等待回应
         let cmd = CommandRequest::new_hset("t1", "k1", "v1");
-        let res = client.execute(cmd).await.unwrap();
+        let res = client.execute(&cmd).await.unwrap();
 
         // 第一次 HSET 服务器应该返回 None
         assert_res_ok(&res, &[Value::default()], &[]);
 
         // 再发一个 HSET
         let cmd = CommandRequest::new_hget("t1", "k1");
-        let res = client.execute(cmd).await?;
+        let res = client.execute(&cmd).await?;
 
         // 服务器应该返回上一次的结果
         assert_res_ok(&res, &["v1".into()], &[]);
@@ -122,12 +122,12 @@ mod tests {
 
         let v: Value = Bytes::from(vec![0u8; 16384]).into();
         let cmd = CommandRequest::new_hset("t2", "k2", v.clone());
-        let res = client.execute(cmd).await?;
+        let res = client.execute(&cmd).await?;
 
         assert_res_ok(&res, &[Value::default()], &[]);
 
         let cmd = CommandRequest::new_hget("t2", "k2");
-        let res = client.execute(cmd).await?;
+        let res = client.execute(&cmd).await?;
 
         assert_res_ok(&res, &[v], &[]);
 
