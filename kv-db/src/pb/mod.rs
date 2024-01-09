@@ -49,6 +49,29 @@ impl CommandRequest {
         })
         .into()
     }
+
+    pub fn new_publish(topic: &str, data: Vec<Value>) -> Self {
+        RequestData::Publish(Publish {
+            topic: topic.into(),
+            data,
+        })
+        .into()
+    }
+
+    pub fn new_subscribe(topic: &str) -> Self {
+        RequestData::Subscribe(Subscribe {
+            topic: topic.into(),
+        })
+        .into()
+    }
+
+    pub fn new_unsubscribe(topic: &str, id: u32) -> Self {
+        RequestData::Unsubscribe(Unsubscribe {
+            topic: topic.into(),
+            id,
+        })
+        .into()
+    }
 }
 
 impl CommandResponse {
@@ -124,7 +147,7 @@ impl From<KvError> for CommandResponse {
         };
 
         match value {
-            KvError::NotFound(_, _) => result.status = StatusCode::NOT_FOUND.as_u16() as _,
+            KvError::NotFound(_) => result.status = StatusCode::NOT_FOUND.as_u16() as _,
             KvError::InvalidCommand(_) => result.status = StatusCode::BAD_REQUEST.as_u16() as _,
             _ => {}
         }

@@ -4,8 +4,8 @@ use tokio_rustls::{rustls::TLSError, webpki::InvalidDNSNameError};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum KvError {
-    #[error("Not found for table: {0}, key: {1}")]
-    NotFound(String, String),
+    #[error("Not found for key: {0}")]
+    NotFound(String),
 
     #[error("Cannot parse command: `{0}`")]
     InvalidCommand(String),

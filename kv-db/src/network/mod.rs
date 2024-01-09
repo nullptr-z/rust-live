@@ -1,9 +1,10 @@
 mod frame;
 pub mod multiplex;
 pub mod stream;
+pub mod stream_result;
 pub mod tls;
 
-use self::stream::ProstStream;
+use self::{stream::ProstStream, stream_result::StreamResult};
 use crate::{
     error::KvError,
     pb::abi::{CommandRequest, CommandResponse},
@@ -67,6 +68,17 @@ where
             None => Err(KvError::Internal("Didn't get any response".into())),
         }
     }
+
+    pub async fn execute_streaming(
+        self,
+        cmd: &CommandRequest,
+    ) -> Result<StreamResult<ProstStream<S, CommandResponse, CommandRequest>>, KvError> {
+        let mut stream = self.stream;
+        stream.send(cmd).await?;
+        stream.close().await?;
+
+        Ok(StreamResult::new(stream).await?)
+    }
 }
 
 #[cfg(test)]
@@ -89,14 +101,14 @@ mod tests {
         let res = client.execute(cmd).await.unwrap();
 
         // 第一次 HSET 服务器应该返回 None
-        assert_res_ok(res, &[Value::default()], &[]);
+        assert_res_ok(&res, &[Value::default()], &[]);
 
         // 再发一个 HSET
         let cmd = CommandRequest::new_hget("t1", "k1");
         let res = client.execute(cmd).await?;
 
         // 服务器应该返回上一次的结果
-        assert_res_ok(res, &["v1".into()], &[]);
+        assert_res_ok(&res, &["v1".into()], &[]);
 
         Ok(())
     }
@@ -112,12 +124,12 @@ mod tests {
         let cmd = CommandRequest::new_hset("t2", "k2", v.clone());
         let res = client.execute(cmd).await?;
 
-        assert_res_ok(res, &[Value::default()], &[]);
+        assert_res_ok(&res, &[Value::default()], &[]);
 
         let cmd = CommandRequest::new_hget("t2", "k2");
         let res = client.execute(cmd).await?;
 
-        assert_res_ok(res, &[v], &[]);
+        assert_res_ok(&res, &[v], &[]);
 
         Ok(())
     }

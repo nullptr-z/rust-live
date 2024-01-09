@@ -26,7 +26,6 @@ async fn main() -> Result<()> {
                 info!("got a new cmd request: {:?}", cmd);
                 buf.clear();
                 let resp = svc.clone().execute(cmd).next().await.unwrap();
-                let resp = resp.as_ref().to_owned();
                 resp.encode(&mut buf).unwrap();
                 stream.send(buf.freeze()).await.unwrap();
             }

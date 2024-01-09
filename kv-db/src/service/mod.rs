@@ -28,7 +28,6 @@ impl<Store: Storage> Service<Store> {
         self.on_received.notify(&cmd);
         let mut resp = dispatch(cmd.clone(), &self.store);
         if resp == CommandResponse::default() {
-            // TODO：这个方法的响应需要改了
             dispatch_stream(cmd, self.broadcaster.clone())
         } else {
             info!("Executed response: {:?}", resp);
@@ -190,17 +189,15 @@ mod service_tests_2 {
         // 创建一个线程，在 table t1 中写入 k1, v1
         let handle = thread::spawn(move || async move {
             let mut res = cloned.execute(CommandRequest::new_hset("t1", "k1", "v1"));
-            let binding = res.next().await.unwrap();
-            let res = binding.as_ref();
-            assert_res_ok(res.clone(), &[Value::default()], &[]);
+            let res = res.next().await.unwrap();
+            assert_res_ok(&res, &[Value::default()], &[]);
         });
         handle.join().unwrap().await;
 
         // 在当前线程下读取 table t1 的 k1，应该返回 v1
         let mut res = service.execute(CommandRequest::new_hget("t1", "k1"));
-        let binding = res.next().await.unwrap();
-        let res = binding.as_ref();
-        assert_res_ok(res.clone(), &["v1".into()], &[]);
+        let res = res.next().await.unwrap();
+        assert_res_ok(&res, &["v1".into()], &[]);
     }
 }
 
@@ -214,17 +211,19 @@ use self::{
 };
 // 测试成功返回的结果
 #[cfg(test)]
-pub fn assert_res_ok(mut res: CommandResponse, values: &[Value], pairs: &[Kvpair]) {
-    res.pairs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+pub fn assert_res_ok(res: &CommandResponse, values: &[Value], pairs: &[Kvpair]) {
+    let mut sorted_pairs = res.pairs.clone();
+    sorted_pairs.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(res.status, 200);
     assert_eq!(res.message, "");
     assert_eq!(res.values, values);
-    assert_eq!(res.pairs, pairs);
+    assert_eq!(sorted_pairs, pairs);
 }
 
 // 测试失败返回的结果
 #[cfg(test)]
-pub fn assert_res_error(res: CommandResponse, code: u32, msg: &str) {
+pub fn assert_res_error(res: &CommandResponse, code: u32, msg: &str) {
+    println!("【 res.message 】==> {:?}", res.message);
     assert_eq!(res.status, code);
     assert!(res.message.contains(msg));
     assert_eq!(res.values, &[]);
