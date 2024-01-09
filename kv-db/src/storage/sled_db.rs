@@ -117,7 +117,7 @@ where
 {
     fn flip(self) -> Result<Option<Value>, KvError> {
         match self {
-            Ok(value) => Ok(value.map(|m| m.as_ref().into())),
+            Ok(value) => Ok(value.map(|m| m.deref().into())),
             Err(e) => Err(KvError::Internal(
                 format!("error flipr: {:?}", e).to_owned(),
             )),

@@ -2,25 +2,19 @@ use std::time::Duration;
 
 use anyhow::Result;
 use kv_db::{
-    error::KvError, multiplex::YamuxCtrl, pb::abi::CommandRequest, tls::TlsClientConnector,
-    ProstClientStream,
+    config::ClientConfig, error::KvError, multiplex::YamuxCtrl, pb::abi::CommandRequest,
+    start_client_with_config, tls::TlsClientConnector, ProstClientStream,
 };
-use tokio::{net::TcpStream, time};
+use tokio::time;
 use tokio_util::compat::Compat;
 use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    let addr = "127.0.0.1:9876";
-    // tudo: 从配置文件中读取
-    let ca = include_str!("../fixtures/ca.cert");
-
-    //  create Client by connect server,
-    let tcp_stream = TcpStream::connect(addr).await?;
-    let tls: TlsClientConnector = TlsClientConnector::new("kvserver.acme.inc", None, Some(ca))?;
-    let tls_stream = tls.connect(tcp_stream).await?;
-    let mut yamux = YamuxCtrl::new_client(tls_stream, None);
+    let config: Result<ClientConfig, toml::de::Error> =
+        toml::from_str(include_str!("../fixtures/client.conf"));
+    let mut yamux = start_client_with_config(config?).await?;
     let yamux_stream = yamux.open_stream().await?;
     let mut client = ProstClientStream::new(yamux_stream);
 

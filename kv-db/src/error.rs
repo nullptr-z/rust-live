@@ -2,7 +2,7 @@ use crate::pb::abi::Value;
 use thiserror::Error;
 use tokio_rustls::{rustls::TLSError, webpki::InvalidDNSNameError};
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum KvError {
     #[error("Not found for key: {0}")]
     NotFound(String),
@@ -20,7 +20,8 @@ pub enum KvError {
     DecodeError(#[from] prost::DecodeError),
     #[error("std::io error: {0}")]
     IOError(String),
-    // IOError(#[from] std::io::Error),
+    #[error("I/O error")]
+    IoError(#[from] std::io::Error),
     #[error("Internal error: {0}")]
     Internal(String),
 
@@ -32,6 +33,9 @@ pub enum KvError {
 
     #[error("InvalidDNSNameError")]
     InvalidDNSNameError(#[from] InvalidDNSNameError),
+
+    #[error("TomlError")]
+    TomlError(#[from] toml::de::Error),
 }
 
 pub(crate) trait IOError<T> {
