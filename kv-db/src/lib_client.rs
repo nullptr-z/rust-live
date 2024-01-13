@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use anyhow::Result;
 use kv_db::{
-    config::ClientConfig, error::KvError, multiplex::YamuxCtrl, pb::abi::CommandRequest,
-    start_client_with_config, tls::TlsClientConnector, ProstClientStream,
+    config::ClientConfig, error::KvError, pb::abi::CommandRequest, start_client_with_config,
+    ProstClientStream,
 };
 use tokio::time;
 use tokio_util::compat::Compat;
