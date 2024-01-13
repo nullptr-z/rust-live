@@ -1,10 +1,9 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use kv_db::{
     config::ClientConfig, error::KvError, pb::abi::CommandRequest, start_client_with_config,
     ProstClientStream,
 };
+use std::time::Duration;
 use tokio::time;
 use tokio_util::compat::Compat;
 use tracing::info;
@@ -15,8 +14,7 @@ async fn main() -> Result<()> {
     let config: Result<ClientConfig, toml::de::Error> =
         toml::from_str(include_str!("../fixtures/client.conf"));
     let mut yamux = start_client_with_config(config?).await?;
-    let yamux_stream = yamux.open_stream().await?;
-    let mut client = ProstClientStream::new(yamux_stream);
+    let mut client = yamux.open_stream().await?;
 
     // send cmd
     let cmd = CommandRequest::new_hset("table1", "key2", "hahah");
@@ -40,24 +38,29 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn start_publishing(stream: Compat<yamux::Stream>, name: &str) -> Result<(), KvError> {
+fn start_publishing(
+    mut stream: ProstClientStream<Compat<yamux::Stream>>,
+    name: &str,
+) -> Result<(), KvError> {
     let cmd = CommandRequest::new_publish(name, vec![1.into(), 2.into(), "hello".into()]);
     tokio::spawn(async move {
         time::sleep(Duration::from_millis(1000)).await;
-        let mut client = ProstClientStream::new(stream);
-        let res = client.execute(&cmd).await.unwrap();
+        let res = stream.execute(&cmd).await.unwrap();
         println!("Finished publishing: {:?}", res);
     });
 
     Ok(())
 }
 
-fn start_unsubscribe(stream: Compat<yamux::Stream>, name: &str, id: u32) -> Result<(), KvError> {
+fn start_unsubscribe(
+    mut stream: ProstClientStream<Compat<yamux::Stream>>,
+    name: &str,
+    id: u32,
+) -> Result<(), KvError> {
     let cmd = CommandRequest::new_unsubscribe(name, id as _);
     tokio::spawn(async move {
         time::sleep(Duration::from_millis(2000)).await;
-        let mut client = ProstClientStream::new(stream);
-        let res = client.execute(&cmd).await.unwrap();
+        let res = stream.execute(&cmd).await.unwrap();
         println!("Finished unsubscribing: {:?}", res);
     });
 

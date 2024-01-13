@@ -4,6 +4,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use yamux::{Config, Connection, ConnectionError, Control, Mode};
 
+use crate::ProstClientStream;
+
 pub struct YamuxCtrl<S> {
     ctrl: Control,
     _conn: PhantomData<S>,
@@ -55,9 +57,11 @@ where
         Self::new(stream, config, false, f)
     }
 
-    pub async fn open_stream(&mut self) -> Result<Compat<yamux::Stream>, ConnectionError> {
+    pub async fn open_stream(
+        &mut self,
+    ) -> Result<ProstClientStream<Compat<yamux::Stream>>, ConnectionError> {
         let stream = self.ctrl.open_stream().await?;
-        Ok(stream.compat())
+        Ok(ProstClientStream::new(stream.compat()))
     }
 }
 
