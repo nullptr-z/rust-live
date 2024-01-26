@@ -1,0 +1,48 @@
+syntax ="proto3";
+
+package message;
+
+// 登录账号
+message LoginRequest{
+  string username = 1;
+  string password = 2;
+}
+
+message Token {
+  string token = 1;
+}
+
+message NewChatMessage{
+  // unique room name
+  string content = 1;
+  string room = 2;
+}
+
+// 发送空消息
+message SendMessageResponse{}
+// 获取消息
+message GetMessageRequest{}
+
+// 空的请求
+message MessageName{}
+//
+message ChatMessage{
+  // 谁发的
+  string sender = 1;
+  // 发送到哪个频道
+  string room = 2;
+  // 发送的内容
+  string content = 3;
+  // 发送的时间
+  int64 timestamp = 4;
+}
+
+
+// gRPC Struct
+service Chat {
+  rpc Login(LoginRequest) returns(Token){}
+
+  rpc SendMessage(NewChatMessage) returns(SendMessageResponse){}
+
+  rpc GetMessage(GetMessageRequest) returns(stream ChatMessage){}
+}
