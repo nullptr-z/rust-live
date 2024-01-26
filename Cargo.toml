@@ -18,6 +18,7 @@ members = [
   # "chrome-v8-live",
   # "deno-core-live",
   # "macros/proc-macros",
-  "kv-server",
+  # "kv-server",
   # "sql-query-all"
+  "million-concurrent"
 ]
