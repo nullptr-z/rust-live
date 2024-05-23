@@ -7,7 +7,7 @@ edition = "2021"
 
 # 子目录可以在他自己的 Cargo.toml 文件中加入一个空 [workspace] 指明他不属于这个 workspace; 例如 quic-protocol-live 这个 create
 [workspace]
-members = [
+members = [ "derive-macro",
   # "create-practice/prost-live",
   # "create-practice/axum-live",
   # "create-practice/axum-ws-live",
