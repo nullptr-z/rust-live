@@ -1,11 +1,19 @@
 use anyhow::Result;
 use strum::{
     EnumCount, EnumDiscriminants, EnumIs, EnumIter, EnumMessage, EnumString, IntoEnumIterator,
-    VariantNames,
+    IntoStaticStr, VariantNames,
 };
 
 #[derive(
-    Debug, EnumString, EnumCount, EnumIter, EnumDiscriminants, EnumIs, EnumMessage, VariantNames,
+    Debug,
+    EnumString,
+    EnumCount,
+    EnumIter,
+    EnumDiscriminants,
+    EnumIs,
+    EnumMessage,
+    VariantNames,
+    IntoStaticStr,
 )]
 enum MyEnum {
     A,
