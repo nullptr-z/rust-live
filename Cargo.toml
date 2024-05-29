@@ -23,4 +23,4 @@ members = [ "derive-macro",
   # "sql-query-all"
   "readJson",
   "million-concurrent"
-, "serde_demo"]
+, "serde_demo", "smiple-redis"]
