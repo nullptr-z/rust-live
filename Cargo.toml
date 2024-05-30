@@ -21,6 +21,8 @@ members = [ "derive-macro",
   # "kv-server",
   # "kv-db",
   # "sql-query-all"
-  "readJson",
-  "million-concurrent"
-, "serde_demo", "smiple-redis"]
+  # "readJson",
+  # "million-concurrent",
+  # "serde_demo",
+ "simple-redis"
+ ]
