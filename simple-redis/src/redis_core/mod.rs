@@ -2,14 +2,16 @@ pub mod command;
 pub mod decode;
 pub mod encode;
 
+use bytes::BytesMut;
 use std::collections::{HashMap, HashSet};
+use thiserror::Error;
 
 pub trait RespEncode {
     fn encode(self) -> Vec<u8>;
 }
 
-pub trait RespDecode {
-    fn decode(buf: Self) -> Result<RespFrame, String>;
+pub trait RespDecode: Sized {
+    fn decode(buf: &BytesMut) -> Result<Self, RespError>;
 }
 
 pub enum RespFrame {
@@ -28,6 +30,7 @@ pub enum RespFrame {
 }
 
 // 为了区分 SimpleString 和 SimpleError，实际上他们都是 String
+#[derive(Debug, Clone, PartialEq)]
 pub struct SimpleString(String);
 pub struct SimpleError(String);
 pub struct RespNullBulkString;
@@ -37,3 +40,15 @@ pub struct RespNull;
 pub struct RespNullArray;
 pub struct RespMap(HashMap<String, RespFrame>);
 pub struct RespSet(HashSet<RespFrame>);
+
+#[derive(Debug, Error, PartialEq)]
+pub enum RespError {
+    #[error("invalid frame: {0}")]
+    InvalidFrame(String),
+    #[error("invalid frame type: {0}")]
+    InvalidFrameType(String),
+    #[error("invalid frame length: {0}")]
+    InvalidFrameLength(isize),
+    #[error("frame is not complete")]
+    NotComplete,
+}
