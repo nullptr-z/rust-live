@@ -11,7 +11,7 @@ pub trait RespEncode {
 }
 
 pub trait RespDecode: Sized {
-    fn decode(buf: &BytesMut) -> Result<Self, RespError>;
+    fn decode(buf: &mut BytesMut) -> Result<Self, RespError>;
 }
 
 pub enum RespFrame {
@@ -51,4 +51,12 @@ pub enum RespError {
     InvalidFrameLength(isize),
     #[error("frame is not complete")]
     NotComplete,
+    #[error("Parse error: {0}")]
+    parseIntError(#[from] std::num::ParseIntError), // 从 std::num::ParseIntError 转换到自定义的 parseIntError
+}
+
+impl SimpleString {
+    fn new(s: impl Into<String>) -> Self {
+        Self(s.into())
+    }
 }
