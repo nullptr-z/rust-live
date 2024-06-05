@@ -36,7 +36,7 @@ impl RespDecode for RespFrame {
 
 impl RespDecode for RespNull {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        extract_fixed_data(buf, b"_\r\n", "Null")?;
+        extract_fixed_data(buf, "_\r\n", "Null")?;
 
         Ok(RespNull)
     }
@@ -44,7 +44,7 @@ impl RespDecode for RespNull {
 
 impl RespDecode for SimpleString {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b"+")?;
+        let content = extract_simple_frame_data(buf, "+")?;
         info!("got a SimpleString: {}", content);
 
         Ok(SimpleString(content.to_string()))
@@ -53,7 +53,7 @@ impl RespDecode for SimpleString {
 
 impl RespDecode for BulkString {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let (end, len) = parse_length(buf, b"$")?;
+        let (end, len) = parse_length(buf, "$")?;
         let remained = &buf[end + CRLF_LEN..];
         if remained.len() < len + CRLF_LEN {
             return Err(RespError::NotComplete);
@@ -68,7 +68,7 @@ impl RespDecode for BulkString {
 
 impl RespDecode for RespNullBulkString {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        extract_fixed_data(buf, b"$-1\r\n", "NullBulkString")?;
+        extract_fixed_data(buf, "$-1\r\n", "NullBulkString")?;
 
         Ok(RespNullBulkString)
     }
@@ -76,7 +76,7 @@ impl RespDecode for RespNullBulkString {
 
 impl RespDecode for SimpleError {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b"-")?;
+        let content = extract_simple_frame_data(buf, "-")?;
         info!("got a SimpleError: {}", content);
 
         Ok(SimpleError(content.to_string()))
@@ -85,9 +85,9 @@ impl RespDecode for SimpleError {
 
 impl RespDecode for bool {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        match extract_fixed_data(buf, b"#t\r\n", "Bool") {
+        match extract_fixed_data(buf, "#t\r\n", "Bool") {
             Ok(_) => Ok(true),
-            Err(_) => match extract_fixed_data(buf, b"#f\r\n", "Bool") {
+            Err(_) => match extract_fixed_data(buf, "#f\r\n", "Bool") {
                 Ok(_) => Ok(false),
                 Err(e) => Err(e),
             },
@@ -97,7 +97,7 @@ impl RespDecode for bool {
 
 impl RespDecode for i64 {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b":")?;
+        let content = extract_simple_frame_data(buf, ":")?;
         info!("got a RespDecode: {}", content);
 
         Ok(content.parse()?)
@@ -106,7 +106,7 @@ impl RespDecode for i64 {
 
 impl RespDecode for f64 {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b",")?;
+        let content = extract_simple_frame_data(buf, ",")?;
         info!("got a SimpleError: {}", content);
 
         Ok(content.parse()?)
@@ -115,7 +115,7 @@ impl RespDecode for f64 {
 
 impl RespDecode for RespArray {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b"*")?;
+        let content = extract_simple_frame_data(buf, "*")?;
         let len = content.parse::<i64>()? as usize;
 
         let mut frames: Vec<RespFrame> = Vec::with_capacity(len);
@@ -130,7 +130,7 @@ impl RespDecode for RespArray {
 
 impl RespDecode for RespNullArray {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        extract_fixed_data(buf, b"*-1\r\n", "NullArray")?;
+        extract_fixed_data(buf, "*-1\r\n", "NullArray")?;
 
         Ok(RespNullArray)
     }
@@ -138,10 +138,10 @@ impl RespDecode for RespNullArray {
 
 impl RespDecode for RespMap {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b"%")?;
+        let content = extract_simple_frame_data(buf, "%")?;
         let len = content.parse::<i64>()? as usize;
 
-        let mut frames: HashMap<String, RespFrame> = HashMap::with_capacity(len);
+        let mut frames: BTreeMap<String, RespFrame> = BTreeMap::new();
         for _ in 0..len {
             let key = SimpleString::decode(buf)?;
             let value = RespFrame::decode(buf)?;
@@ -154,7 +154,7 @@ impl RespDecode for RespMap {
 
 impl RespDecode for RespSet {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let content = extract_simple_frame_data(buf, b"~")?;
+        let content = extract_simple_frame_data(buf, "~")?;
         let len = content.parse::<i64>()? as usize;
 
         let mut frames = Vec::with_capacity(len);
@@ -204,10 +204,44 @@ mod test_decode {
         let mut buf = BytesMut::new();
         buf.extend_from_slice(b"$6\r\nfoobar\r\n");
         let frame = BulkString::decode(&mut buf);
-        assert_eq!(frame.unwrap(), BulkString(b"foobar".to_vec()));
+        assert_eq!(frame.unwrap(), BulkString("foobar".as_bytes().to_vec()));
 
         buf.extend_from_slice(b"$-1\r\n");
         let frame = RespNullBulkString::decode(&mut buf);
         assert_eq!(frame.unwrap(), RespNullBulkString);
+    }
+
+    #[test]
+    fn test_set() {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"~2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
+        let frame = RespSet::decode(&mut buf);
+        assert_eq!(
+            frame.unwrap(),
+            RespSet(vec![
+                BulkString(b"foo".to_vec()).into(),
+                BulkString(b"bar".to_vec()).into()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_map() {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"%2\r\n+hello\r\n$5\r\nworld\r\n+foo\r\n$3\r\nbar\r\n");
+        let frame = RespMap::decode(&mut buf);
+        assert_eq!(
+            frame.unwrap(),
+            RespMap(BTreeMap::from([
+                (
+                    "hello".to_string(),
+                    BulkString("world".as_bytes().to_vec()).into()
+                ),
+                (
+                    "foo".to_string(),
+                    BulkString("bar".as_bytes().to_vec()).into()
+                )
+            ]))
+        );
     }
 }

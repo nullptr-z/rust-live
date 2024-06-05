@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use super::*;
 
 const RESP_FRAME_CAP: usize = 1024;

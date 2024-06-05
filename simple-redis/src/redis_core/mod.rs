@@ -3,7 +3,7 @@ pub mod decode;
 pub mod encode;
 
 use bytes::{Buf, BytesMut};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use thiserror::Error;
 
 const CRLF_LEN: usize = 2;
@@ -16,6 +16,7 @@ pub trait RespDecode: Sized {
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError>;
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum RespFrame {
     Integer(i64),
     SimpleString(SimpleString),
@@ -32,17 +33,23 @@ pub enum RespFrame {
 }
 
 // 为了区分 SimpleString 和 SimpleError，实际上他们都是 String
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SimpleString(String);
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SimpleError(String);
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespNullBulkString;
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BulkString(Vec<u8>);
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespArray(Vec<RespFrame>);
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespNull;
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespNullArray;
-pub struct RespMap(HashMap<String, RespFrame>);
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct RespMap(BTreeMap<String, RespFrame>);
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespSet(Vec<RespFrame>);
 
 #[derive(Debug, Error, PartialEq)]
@@ -69,14 +76,14 @@ impl SimpleString {
 
 fn extract_fixed_data(
     buf: &mut BytesMut,
-    extract: &[u8],
+    extract: &str,
     extract_type: &str,
 ) -> Result<(), RespError> {
     if buf.len() < extract.len() {
         return Err(RespError::NotComplete);
     }
 
-    if !buf.starts_with(extract) {
+    if !buf.starts_with(extract.as_bytes()) {
         return Err(RespError::InvalidFrameType(format!(
             "expect: {}, but got: {:?}",
             extract_type, buf
@@ -88,15 +95,15 @@ fn extract_fixed_data(
     Ok(())
 }
 
-fn extract_simple_frame_data(buf: &mut BytesMut, prefix: &[u8]) -> Result<String, RespError> {
+fn extract_simple_frame_data(buf: &mut BytesMut, prefix: &str) -> Result<String, RespError> {
     let len = buf.len();
     // length 至少大与 3
     if len < 3 {
         return Err(RespError::NotComplete);
     }
-    if !buf.starts_with(prefix) {
+    if !buf.starts_with(prefix.as_bytes()) {
         return Err(RespError::InvalidFrameType(format!(
-            "Simple Frame need char '{:?}' start",
+            "Simple Frame need char '{}' start",
             prefix
         )));
     }
@@ -123,8 +130,21 @@ fn find_nth_crlf(buf: &BytesMut, nth: usize) -> Result<usize, RespError> {
 
     Err(RespError::NotComplete)
 }
-fn parse_length(buf: &mut BytesMut, prefix: &[u8]) -> Result<(usize, usize), RespError> {
+
+fn parse_length(buf: &mut BytesMut, prefix: &str) -> Result<(usize, usize), RespError> {
     let end = find_nth_crlf(buf, 1)?;
     let content = String::from_utf8_lossy(&buf[prefix.len()..end]);
     Ok((end, content.parse()?))
+}
+
+impl From<SimpleString> for RespFrame {
+    fn from(s: SimpleString) -> Self {
+        RespFrame::SimpleString(s)
+    }
+}
+
+impl From<BulkString> for RespFrame {
+    fn from(s: BulkString) -> Self {
+        RespFrame::BulkString(s)
+    }
 }
