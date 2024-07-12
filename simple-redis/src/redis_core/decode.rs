@@ -32,6 +32,23 @@ impl RespDecode for RespFrame {
 
         resp
     }
+
+    fn expect_length(buf: &[u8]) -> Result<usize, RespError> {
+        let mut iter = buf.iter().peekable();
+        match iter.peek() {
+            Some(b':') => i64::expect_length(buf),
+            Some(b'+') => SimpleString::expect_length(buf),
+            Some(b'-') => SimpleError::expect_length(buf),
+            Some(b'*') => RespArray::expect_length(buf),
+            Some(b'~') => RespSet::expect_length(buf),
+            Some(b'%') => RespMap::expect_length(buf),
+            Some(b'#') => bool::expect_length(buf),
+            Some(b',') => f64::expect_length(buf),
+            Some(b'_') => RespNull::expect_length(buf),
+            Some(b'$') => BulkString::expect_length(buf),
+            _ => Err(RespError::NotComplete),
+        }
+    }
 }
 
 impl RespDecode for RespNull {
@@ -39,6 +56,10 @@ impl RespDecode for RespNull {
         extract_fixed_data(buf, "_\r\n", "Null")?;
 
         Ok(RespNull)
+    }
+
+    fn expect_length(buf: &[u8]) -> Result<usize, RespError> {
+        todo!()
     }
 }
 
@@ -169,6 +190,7 @@ impl RespDecode for RespSet {
 
 mod test_decode {
     use crate::redis_core::*;
+    use anyhow::Result;
     use bytes::{BufMut, BytesMut};
 
     #[test]
@@ -243,5 +265,56 @@ mod test_decode {
                 )
             ]))
         );
+    }
+
+    #[test]
+    fn test_integer_decode() -> Result<()> {
+        let mut buf = BytesMut::new();
+
+        buf.extend_from_slice(b":+123\r\n");
+        let frame = i64::decode(&mut buf)?;
+        assert_eq!(frame, 123);
+
+        buf.extend_from_slice(b":-123\r\n");
+        let frame = i64::decode(&mut buf)?;
+        assert_eq!(frame, -123);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_decode() -> Result<()> {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b",123.45\r\n");
+
+        let frame = f64::decode(&mut buf)?;
+        assert_eq!(frame, 123.45);
+
+        buf.extend_from_slice(b",+1.23456e-9\r\n");
+        let frame = f64::decode(&mut buf)?;
+        assert_eq!(frame, 1.23456e-9);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_array_decode() -> Result<()> {
+        tracing_subscriber::fmt::init();
+        let mut buf = BytesMut::new();
+
+        buf.extend_from_slice(b"*2\r\n$3\r\nset\r\n$5\r\nhello\r\n");
+        let frame = RespArray::decode(&mut buf)?;
+        assert_eq!(frame, RespArray::new(["set".into(), "hello".into()]));
+
+        buf.extend_from_slice(b"*2\r\n$3\r\nset\r\n");
+        let ret = RespArray::decode(&mut buf);
+        assert_eq!(ret.unwrap_err(), RespError::NotComplete);
+
+        // buf.extend_from_slice(b"$5\r\nhello\r\n");
+        // tracing::info!("frame: {:?}", buf);
+        // let frame = RespArray::decode(&mut buf)?;
+        // assert_eq!(frame, RespArray::new(["hello".into()]));
+
+        Ok(())
     }
 }

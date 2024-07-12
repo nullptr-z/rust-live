@@ -3,7 +3,7 @@ pub mod decode;
 pub mod encode;
 
 use bytes::{Buf, BytesMut};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 const CRLF_LEN: usize = 2;
@@ -13,7 +13,10 @@ pub trait RespEncode {
 }
 
 pub trait RespDecode: Sized {
+    const PREFIX: &'static str = "";
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError>;
+    // fn expect_prefix(buf: &mut BytesMut) -> Result<(), RespError>;
+    fn expect_length(buf: &[u8]) -> Result<usize, RespError>;
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -109,7 +112,10 @@ fn extract_simple_frame_data(buf: &mut BytesMut, prefix: &str) -> Result<String,
     }
 
     // end is "\r\n"
-    let end: usize = find_nth_crlf(&buf, 1)?;
+    let end = match find_nth_crlf(&buf, 1) {
+        Some(end) => end,
+        None => return Err(RespError::NotComplete),
+    };
 
     let data = buf.split_to(end + 2);
     let content = String::from_utf8_lossy(&data[1..end]);
@@ -117,25 +123,59 @@ fn extract_simple_frame_data(buf: &mut BytesMut, prefix: &str) -> Result<String,
     Ok(content.to_string())
 }
 
-fn find_nth_crlf(buf: &BytesMut, nth: usize) -> Result<usize, RespError> {
+fn find_nth_crlf(buf: &[u8], nth: usize) -> Option<usize> {
     let mut count: usize = 0;
     for i in 0..buf.len() - 1 {
         if buf[i] == b'\r' && buf[i + 1] == b'\n' {
             count += 1;
             if count == nth {
-                return Ok(i);
+                return Some(i);
             }
         }
     }
 
-    Err(RespError::NotComplete)
+    None
 }
 
 fn parse_length(buf: &mut BytesMut, prefix: &str) -> Result<(usize, usize), RespError> {
-    let end = find_nth_crlf(buf, 1)?;
+    let end = match find_nth_crlf(&buf, 1) {
+        Some(end) => end,
+        None => return Err(RespError::NotComplete),
+    };
     let content = String::from_utf8_lossy(&buf[prefix.len()..end]);
     Ok((end, content.parse()?))
 }
+
+fn calc_total_length(buf: &[u8], len: usize, prefix: &str) -> Result<usize, RespError> {
+    let data = &buf[len + CRLF_LEN..];
+    match prefix {
+        "*" | "~" => find_nth_crlf(data, len)
+            .map(|end| end + CRLF_LEN + len)
+            .ok_or(RespError::NotComplete),
+        "%" => find_nth_crlf(data, len * 2)
+            .map(|end| end + CRLF_LEN + len)
+            .ok_or(RespError::NotComplete),
+        _ => Ok(len + CRLF_LEN),
+    }
+}
+
+impl RespArray {
+    fn new(v: impl Into<Vec<RespFrame>>) -> Self {
+        RespArray(v.into())
+    }
+}
+
+impl From<&[u8]> for SimpleString {
+    fn from(s: &[u8]) -> Self {
+        s.into()
+    }
+}
+
+// impl From<&str> for SimpleString {
+//     fn from(s: &str) -> Self {
+//         SimpleString::new(s)
+//     }
+// }
 
 impl From<SimpleString> for RespFrame {
     fn from(s: SimpleString) -> Self {
@@ -143,8 +183,38 @@ impl From<SimpleString> for RespFrame {
     }
 }
 
+impl From<&str> for RespFrame {
+    fn from(s: &str) -> Self {
+        RespFrame::BulkString(s.into())
+    }
+}
+
+impl From<&[u8]> for RespFrame {
+    fn from(s: &[u8]) -> Self {
+        s.into()
+    }
+}
+
+impl From<Vec<RespFrame>> for RespArray {
+    fn from(s: Vec<RespFrame>) -> Self {
+        RespArray::new(s)
+    }
+}
+
 impl From<BulkString> for RespFrame {
     fn from(s: BulkString) -> Self {
         RespFrame::BulkString(s)
+    }
+}
+
+impl From<&str> for BulkString {
+    fn from(s: &str) -> Self {
+        BulkString(s.as_bytes().to_vec())
+    }
+}
+
+impl<const N: usize> From<&[u8; N]> for RespFrame {
+    fn from(value: &[u8; N]) -> Self {
+        BulkString(value.to_vec()).into()
     }
 }
