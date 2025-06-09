@@ -1,3 +1,5 @@
+mod conf;
+
 use anyhow::Result;
 use pingora::{proxy::http_proxy_service, server::Server};
 use simpie_proxy_pingora::SimpProxy;
