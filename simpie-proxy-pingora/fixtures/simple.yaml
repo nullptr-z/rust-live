@@ -4,17 +4,29 @@ global:
   # could be empty for no tls or specify cert name
   tls: ~
 
+# Certificates to be used by the proxy
+certs:
+  - name: proxy_cert
+    cert_path: ./proxy/cert.pem
+    key_path: ./proxy/key.pem
+  - name: web_cert
+    cert_path: ./web/cert.pem
+    key_path: ./web/key.pem
+  - name: api_cert
+    cert_path: ./api/cert.pem
+    key_path: ./api/key.pem
+
 # Server configurations
 servers:
   - server_name:
       - acme.com
       - www.acme.com
     upstream: web_servers
-    tls: false
+    tls: ~
   - server_name:
       - api.acme.com
     upstream: api_servers
-    tls: true
+    tls: ~
 
 # Upstream server configurations
 upstreams:

@@ -8,8 +8,14 @@ pub struct SimpleProxyConfig {
     /// Global configuration settings
     pub global: GlobalConfig,
 
+    /// Certificate configurations
+    pub certs: Vec<CertConfig>,
+
     /// Server configurations
     pub servers: Vec<ServerConfig>,
+
+    /// Upstream server configurations
+    pub upstreams: Vec<UpstreamConfig>,
 }
 
 /// Global configuration settings
@@ -20,7 +26,14 @@ pub struct GlobalConfig {
 
     /// TLS configuration (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tls: Option<TlsConfig>,
+    pub tls: Option<TLSConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CertConfig {
+    pub name: String,
+    pub cert_path: String,
+    pub key_path: String,
 }
 
 /// Server configuration
@@ -34,18 +47,18 @@ pub struct ServerConfig {
 
     /// Whether TLS is enabled for this server
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tls: Option<bool>,
+    pub tls: Option<TLSConfig>,
 }
 
 /// TLS configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TlsConfig {
+pub struct TLSConfig {
     /// Path to CA certificate file (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca: Option<PathBuf>,
 
     /// Path to certificate file
-    pub cert: PathBuf,
+    pub certs: PathBuf,
 
     /// Path to key file
     pub key: PathBuf,
@@ -91,6 +104,7 @@ mod tests {
     fn test_load_sample_config() {
         let yaml: &'static str = include_str!("../../fixtures/simple.yaml");
         let config = SimpleProxyConfig::from_yaml_str(yaml).unwrap();
+        println!("【 config 】==> {:#?}", config);
 
         assert_eq!(config.global.port, 8080);
         assert!(config.global.tls.is_none());
@@ -101,7 +115,6 @@ mod tests {
             vec!["acme.com", "www.acme.com"]
         );
         assert_eq!(config.servers[0].upstream, "web_servers");
-        assert_eq!(config.servers[0].tls, Some(false));
 
         // assert_eq!(config.upstreams.len(), 2);
         // assert_eq!(config.upstreams[0].name, "web_servers");
