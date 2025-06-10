@@ -9,6 +9,7 @@ pub struct SimpleProxyConfig {
     pub global: GlobalConfig,
 
     /// Certificate configurations
+    #[serde(default)]
     pub certs: Vec<CertConfig>,
 
     /// Server configurations
@@ -16,6 +17,8 @@ pub struct SimpleProxyConfig {
 
     /// Upstream server configurations
     pub upstreams: Vec<UpstreamConfig>,
+
+    pub plugins: Option<Plugins>,
 }
 
 /// Global configuration settings
@@ -26,7 +29,7 @@ pub struct GlobalConfig {
 
     /// TLS configuration (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tls: Option<TLSConfig>,
+    pub tls: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -47,7 +50,7 @@ pub struct ServerConfig {
 
     /// Whether TLS is enabled for this server
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tls: Option<TLSConfig>,
+    pub tls: Option<String>,
 }
 
 /// TLS configuration
@@ -72,6 +75,14 @@ pub struct UpstreamConfig {
 
     /// List of server addresses in this group
     pub servers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Plugins {
+    name: String,
+    path: String,
+    enabled: bool,
+    execution_points: Vec<String>,
 }
 
 impl SimpleProxyConfig {
@@ -107,7 +118,7 @@ mod tests {
         println!("【 config 】==> {:#?}", config);
 
         assert_eq!(config.global.port, 8080);
-        assert!(config.global.tls.is_none());
+        assert!(config.global.tls.is_some());
 
         assert_eq!(config.servers.len(), 2);
         assert_eq!(

@@ -2,7 +2,7 @@
 global:
   port: 8080
   # could be empty for no tls or specify cert name
-  tls: ~
+  tls: proxy_cert
 
 # Certificates to be used by the proxy
 certs:
@@ -41,9 +41,9 @@ upstreams:
 
 # Plugin configurations (Optional)
 plugins:
-  - name: "Request Header Adder"
-    path: "examples/plugins/example-request-modifier/target/wasm32-wasip1/release/example_request_modifier.wasm"
-    enabled: true
-    execution_points: ["request_headers"] # Run before request headers are sent upstream
-    # config: # Optional plugin-specific config
-    #   some_key: "some_value"
+  name: "Request Header Adder"
+  path: "examples/plugins/example-request-modifier/target/wasm32-wasip1/release/example_request_modifier.wasm"
+  enabled: true
+  execution_points: ["request_headers"] # Run before request headers are sent upstream
+  # config: # Optional plugin-specific config
+  #   some_key: "some_value"

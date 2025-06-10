@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use anyhow::{Result, anyhow};
+use pingora::protocols::tls::TlsStream;
+
 use crate::conf::raw::*;
 
 #[derive(Debug, Clone)]
@@ -11,14 +14,15 @@ pub struct ProxyConfigResolved {
 #[derive(Debug, Clone)]
 pub struct GlobalConfigResolved {
     pub port: u16,
-    // pub certs: Option<CertConfigResolved>,
-    pub tls: Option<TLSConfigResolved>,
+    pub certs: Option<CertConfigResolved>,
+    // pub tls: Option<TLSConfigResolved>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ServerConfigResolved {
     pub upstream: UpstreamConfigResolved,
-    pub tls: Option<TLSConfigResolved>,
+    pub certs: Option<CertConfigResolved>,
+    // pub tls: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,49 +43,95 @@ pub struct UpstreamConfigResolved {
     pub servers: Vec<String>,
 }
 
-impl TryFrom<SimpleProxyConfig> for ProxyConfigResolved {
-    type Error = ();
+impl GlobalConfigResolved {
+    fn new_certs(&mut self, cert: CertConfigResolved) -> Result<&mut Self, ()> {
+        self.certs = Some(cert);
 
-    fn try_from(value: SimpleProxyConfig) -> Result<Self, Self::Error> {
-        let mut servers: HashMap<String, ServerConfigResolved> = HashMap::new();
-        for sv in value.servers.into_iter() {
-            servers.insert(sv.upstream.clone(), sv.try_into()?);
+        Ok(self)
+    }
+}
+
+impl TryFrom<SimpleProxyConfig> for ProxyConfigResolved {
+    type Error = anyhow::Error;
+
+    fn try_from(mut value: SimpleProxyConfig) -> Result<Self> {
+        let mut serversMap: HashMap<String, ServerConfigResolved> = HashMap::new();
+
+        let mut certMap: HashMap<String, CertConfigResolved> = HashMap::new();
+        for cert in value.certs {
+            certMap.insert(cert.name.clone(), cert.try_into()?);
         }
 
-        Ok(Self {
+        let mut upstreamMap: HashMap<String, UpstreamConfigResolved> = HashMap::new();
+        for upstream in value.upstreams {
+            upstreamMap.insert(upstream.name.clone(), upstream.try_into()?);
+        }
+
+        for sv in value.servers.into_iter() {
+            serversMap.insert(
+                sv.upstream.clone(),
+                ServerConfigResolved::try_from_with_maps(&sv, &certMap, &upstreamMap)?,
+            );
+        }
+
+        let tls = value.global.tls.take();
+        let mut that = Self {
             global: value.global.try_into()?,
-            servers,
-        })
+            servers: serversMap,
+        };
+
+        if let Some(certName) = tls {
+            if let Some(cert) = certMap.get(&certName) {
+                that.global.new_certs(cert.to_owned());
+            }
+        }
+
+        Ok(that)
     }
 }
 
 impl TryFrom<GlobalConfig> for GlobalConfigResolved {
-    type Error = ();
+    type Error = anyhow::Error;
 
     fn try_from(value: GlobalConfig) -> Result<Self, Self::Error> {
         Ok(Self {
             port: value.port,
-            tls: value.tls.map(|tls| tls.try_into()).transpose()?,
+            certs: None,
+            // tls: value.tls.map(|tls| tls.try_into()).transpose()?,
         })
     }
 }
 
-impl TryFrom<ServerConfig> for ServerConfigResolved {
-    type Error = ();
+impl ServerConfigResolved {
+    fn try_from_with_maps(
+        server: &ServerConfig,
+        cert_map: &HashMap<String, CertConfigResolved>,
+        upstream_map: &HashMap<String, UpstreamConfigResolved>,
+    ) -> Result<Self> {
+        // Resolve TLS for this server if configured
+        let certs = match &server.tls {
+            Some(cert_name) => {
+                let cert = cert_map
+                    .get(cert_name)
+                    .ok_or_else(|| anyhow!("Server TLS certificate '{}' not found", cert_name))?;
+                Some(cert.clone())
+            }
+            None => None,
+        };
 
-    fn try_from(value: ServerConfig) -> Result<Self, Self::Error> {
-        // let open_tls = value.tls.unwrap_or(false);
-        Ok(Self {
-            tls: value.tls.map(|op| op.try_into()).transpose()?,
-            upstream: UpstreamConfigResolved {
-                servers: value.server_name,
-            },
-        })
+        // Get the upstream configuration
+        let upstream_name = &server.upstream;
+        let upstream = upstream_map
+            .get(upstream_name)
+            .ok_or_else(|| anyhow!("Upstream '{}' not found", upstream_name))?
+            .clone();
+
+        Ok(ServerConfigResolved { certs, upstream })
     }
 }
 
 impl TryFrom<CertConfig> for CertConfigResolved {
-    type Error = ();
+    type Error = anyhow::Error;
 
     fn try_from(value: CertConfig) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -107,9 +157,9 @@ impl TryFrom<TLSConfig> for TLSConfigResolved {
 }
 
 impl TryFrom<UpstreamConfig> for UpstreamConfigResolved {
-    type Error = ();
+    type Error = anyhow::Error;
 
-    fn try_from(value: UpstreamConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: UpstreamConfig) -> Result<Self> {
         Ok(Self {
             servers: value.servers.to_owned(),
         })
