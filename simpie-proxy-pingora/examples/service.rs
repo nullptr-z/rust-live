@@ -3,22 +3,30 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
 };
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use tracing::info;
+
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value_t = 3001)]
+    port: u16,
+}
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+    let args = Args::parse();
 
-    // build our application with a route
     let app = Router::new()
         .route("/", get(root))
         .route("/users", get(users))
         .route("/create", post(create_user));
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    info!("listening on http://0.0.0.0:3000");
+    let addr = format!("api.acme.com:{}", args.port);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    info!("listening on http://{}", addr);
     axum::serve(listener, app).await.unwrap();
 }
 

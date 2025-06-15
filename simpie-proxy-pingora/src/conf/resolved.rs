@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
-use pingora::protocols::tls::TlsStream;
+use rand::seq::IndexedRandom;
 
 use crate::conf::raw::*;
 
@@ -82,7 +82,9 @@ impl TryFrom<SimpleProxyConfig> for ProxyConfigResolved {
 
         if let Some(certName) = tls {
             if let Some(cert) = certMap.get(&certName) {
-                that.global.new_certs(cert.to_owned());
+                if let Err(_) = that.global.new_certs(cert.to_owned()) {
+                    return Err(anyhow!("Failed to set global certs: "));
+                }
             }
         }
 
@@ -127,6 +129,12 @@ impl ServerConfigResolved {
             .clone();
 
         Ok(ServerConfigResolved { certs, upstream })
+    }
+
+    pub fn choose(&self) -> Option<&str> {
+        // 随机指定一个服务
+        let upstream = self.upstream.servers.choose(&mut rand::rng());
+        upstream.map(|m| m.as_str())
     }
 }
 

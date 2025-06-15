@@ -1,25 +1,74 @@
+pub mod conf;
+
 use async_trait::async_trait;
+use axum::http::{self, StatusCode};
+use conf::ProxyConfig;
 use pingora::{http::ResponseHeader, prelude::*};
 use tracing::info;
 
-pub struct SimpProxy {}
+#[derive(Debug, Clone)]
+pub struct SimpProxy {
+    pub(crate) config: ProxyConfig,
+}
+
+pub struct ProxyContext {
+    pub(crate) config: ProxyConfig,
+}
+
+impl SimpProxy {
+    pub fn new(config: ProxyConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn config(&self) -> ProxyConfig {
+        self.config.clone()
+    }
+}
 
 #[async_trait]
 impl ProxyHttp for SimpProxy {
-    type CTX = ();
+    type CTX = ProxyContext;
 
     fn new_ctx(&self) -> Self::CTX {
-        ()
+        ProxyContext {
+            config: self.config.clone(),
+        }
     }
 
     async fn upstream_peer(
         &self,
-        _session: &mut Session,
-        _ctx: &mut Self::CTX,
+        session: &mut Session,
+        ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
-        let peer = HttpPeer::new("127.0.0.1:3000", false, "localhost".to_owned());
+        let config = ctx.config.load();
+        let host = session
+            .get_header(http::header::HOST)
+            .and_then(|head| head.to_str().ok())
+            .and_then(|s| Some(s.split(":").next().unwrap_or(s)))
+            .ok_or(pingora::Error::create(
+                HTTPStatus(StatusCode::NOT_FOUND.into()),
+                ErrorSource::Upstream,
+                None,
+                None,
+            ))?;
+        info!("host: {:?}", host);
+        let service = config.servers.get(host).ok_or(pingora::Error::create(
+            ErrorType::CustomCode("No host found", StatusCode::BAD_REQUEST.into()),
+            ErrorSource::Upstream,
+            None,
+            None,
+        ))?;
 
+        let server_host = service.choose().ok_or(pingora::Error::create(
+            HTTPStatus(StatusCode::NOT_FOUND.into()),
+            ErrorSource::Upstream,
+            None,
+            None,
+        ))?;
+
+        let peer = HttpPeer::new(server_host.to_owned(), false, host.to_owned());
         info!("upstream peer: {}", peer.to_string());
+
         Ok(Box::new(peer))
     }
 

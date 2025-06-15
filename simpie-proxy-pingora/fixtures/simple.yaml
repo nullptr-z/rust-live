@@ -30,11 +30,11 @@ servers:
 
 # Upstream server configurations
 upstreams:
-  - name: web_servers
+  - name: api_servers
     servers:
       - 127.0.0.1:3001
       - 127.0.0.1:3002
-  - name: api_servers
+  - name: web_servers
     servers:
       - 127.0.0.1:3003
       - 127.0.0.1:3004
