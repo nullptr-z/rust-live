@@ -68,10 +68,12 @@ impl TryFrom<SimpleProxyConfig> for ProxyConfigResolved {
         }
 
         for sv in value.servers.into_iter() {
-            serversMap.insert(
-                sv.upstream.clone(),
-                ServerConfigResolved::try_from_with_maps(&sv, &certMap, &upstreamMap)?,
-            );
+            for service_name in &sv.server_name {
+                serversMap.insert(
+                    service_name.clone(),
+                    ServerConfigResolved::try_from_with_maps(&sv, &certMap, &upstreamMap)?,
+                );
+            }
         }
 
         let tls = value.global.tls.take();

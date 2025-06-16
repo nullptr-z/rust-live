@@ -1,6 +1,9 @@
 use axum::{
     Json, Router,
+    body::Body,
+    extract::Request,
     http::StatusCode,
+    middleware::{self, Next},
     routing::{get, post},
 };
 use clap::Parser;
@@ -22,9 +25,16 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/users", get(users))
-        .route("/create", post(create_user));
+        .route("/create", post(create_user))
+        .route_layer(middleware::from_fn(
+            move |req: Request<Body>, next: Next| {
+                let port = args.port;
+                info!("the service is running on port {}", port);
+                next.run(req)
+            },
+        ));
 
-    let addr = format!("api.acme.com:{}", args.port);
+    let addr = format!("0.0.0.0:{}", args.port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     info!("listening on http://{}", addr);
     axum::serve(listener, app).await.unwrap();

@@ -1,4 +1,4 @@
-@HOST=api.acme.com:8080
+@HOST=acme.com:8080
 
 ###
 GET http://{{HOST}}/ HTTP/1.1

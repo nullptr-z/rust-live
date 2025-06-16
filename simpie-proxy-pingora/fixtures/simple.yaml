@@ -19,12 +19,12 @@ certs:
 # Server configurations
 servers:
   - server_name:
-      - acme.com
       - www.acme.com
     upstream: web_servers
     tls: ~
   - server_name:
       - api.acme.com
+      - acme.com
     upstream: api_servers
     tls: ~
 
