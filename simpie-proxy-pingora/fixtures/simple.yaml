@@ -1,6 +1,6 @@
 # Global configurations
 global:
-  port: 8080
+  port: 80
   # could be empty for no tls or specify cert name
   tls: proxy_cert
 
