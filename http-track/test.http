@@ -1,0 +1,24 @@
+### Get request
+GET http://127.0.0.1:3000/get
+Content-Type: application/json
+
+{
+    "message": "test /get request, should return 200"
+}
+
+### Success request
+POST http://127.0.0.1:3000/post
+Content-Type: application/json
+
+{
+    "message": "test /post request, should return 200"
+}
+
+
+### Error request
+POST http://127.0.0.1:3000/echo
+Content-Type: application/json
+
+{
+    "message": "test /echo request, should return 404"
+}

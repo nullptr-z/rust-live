@@ -1,0 +1,26 @@
+[package]
+name = "http-track"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+hyper = { version = "1.6", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+tokio = { version = "1", features = ["full"] }
+
+
+[[example]]
+name = "hy-service"
+path = "examples/hyper/service.rs"
+
+[[example]]
+name = "hy-client"
+path = "examples/hyper/client.rs"
+
+[[example]]
+name = "hy-headers"
+path = "examples/hyper/headers.rs"
+
