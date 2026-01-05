@@ -53,3 +53,16 @@ tokio = { version = "1", features = ["full"] }
 http-body-util = "0.1"
 
 ```
+
+## Trait 扩展学习
+这种模式叫 newtype delegation 或 blanket impl，在 Rust 生态中非常常见：
+```rust
+// 一个 impl 语句，让无数类型自动获得方法
+impl<T: Body> BodyExt for T {}
+impl<B: Body> Body for Request<B> {}
+impl<B: Body> Body for Response<B> {}
+```
+
+1.BodyExt 扩展了 Body
+2.T 实现了 Body，自动为其实现 BodyExt
+3.Request<B>的 B 实现了 Body，自动为 Request<B> 实现 BodyExt

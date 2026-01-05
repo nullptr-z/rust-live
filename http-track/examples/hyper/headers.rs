@@ -117,7 +117,7 @@ async fn handle_request_post(
     //       Response::builder().status(StatusCode::NOT_FOUND)
     //       或直接用数字: .status(200), .status(404)
 
-    let (resp_msg, status_code) = match (&method, path.as_str()) {
+    let (resp_msg, _) = match (&method, path.as_str()) {
         (&Method::POST, "/post") => ("received a POST request", StatusCode::OK),
         _ => ("not found 404", StatusCode::NOT_FOUND),
     };
