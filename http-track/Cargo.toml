@@ -10,8 +10,9 @@ hyper = { version = "1.6", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
 tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["full"] }
 
-
+# ===== Hyper Examples =====
 [[example]]
 name = "hy-service"
 path = "examples/hyper/service.rs"
@@ -23,4 +24,21 @@ path = "examples/hyper/client.rs"
 [[example]]
 name = "hy-headers"
 path = "examples/hyper/headers.rs"
+
+# ===== Tower Examples =====
+[[example]]
+name = "tw-service"
+path = "examples/tower/service.rs"
+
+[[example]]
+name = "tw-log-layer"
+path = "examples/tower/log_layer.rs"
+
+[[example]]
+name = "tw-compose"
+path = "examples/tower/compose.rs"
+
+[[example]]
+name = "tw-hyper"
+path = "examples/tower/hyper_tower.rs"
 
