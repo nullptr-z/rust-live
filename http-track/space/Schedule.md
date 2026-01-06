@@ -18,13 +18,17 @@
 - [x] 简单路由分发（Method + Path 匹配）
 - [x] 所有权实践：借用 vs move（`req.collect()` 消费 req）
 
-## 🚧 下一步
+## 🚧 进行中
 
 ### Day 3 - Tower 中间件
-- [ ] Service trait 核心概念
-- [ ] Layer 机制
-- [ ] 实现日志中间件
-- [ ] 中间件组合
+- [x] Service trait 核心概念（examples/tower/service.rs）
+  - poll_ready 背压机制
+  - call 返回 Future
+  - ServiceExt::ready() / oneshot()
+  - tokio::join! vs JoinSet 并发处理异步任务
+- [ ] Layer 机制（examples/tower/log_layer.rs）
+- [ ] 中间件组合（examples/tower/compose.rs）
+- [ ] Tower + Hyper 集成（examples/tower/hyper_tower.rs）
 
 ## 📋 待完成
 
