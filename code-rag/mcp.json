@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "crag": {
+      "command": "crag",
+      "args": [
+        "mcp",
+        "-d",
+        ".crag.db"
+      ],
+      "env": {}
+    }
+  }
+}

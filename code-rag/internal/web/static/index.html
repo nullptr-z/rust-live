@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRAG - 代码调用图可视化</title>
+  <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border-color: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --accent-blue: #58a6ff;
+      --accent-green: #3fb950;
+      --accent-orange: #f0883e;
+      --accent-purple: #a371f7;
+      --accent-red: #f85149;
+      --accent-cyan: #39c5cf;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .logo-icon {
+      font-size: 28px;
+    }
+
+    .logo-text {
+      font-size: 20px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stats {
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-value {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* Search */
+    .search-box {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    /* Node List */
+    .node-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .node-group {
+      margin-bottom: 8px;
+    }
+
+    .node-group-header {
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .node-group-header:hover {
+      color: var(--text-primary);
+    }
+
+    .node-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s;
+    }
+
+    .node-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .node-item.selected {
+      background: rgba(88, 166, 255, 0.15);
+      border-left: 2px solid var(--accent-blue);
+    }
+
+    .node-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .node-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Detail Panel */
+    .detail-panel {
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+      max-height: 40%;
+      overflow-y: auto;
+    }
+
+    .detail-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--accent-cyan);
+    }
+
+    .detail-row {
+      display: flex;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .detail-label {
+      color: var(--text-secondary);
+      width: 80px;
+      flex-shrink: 0;
+    }
+
+    .detail-value {
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .detail-value a {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+
+    .detail-value a:hover {
+      text-decoration: underline;
+    }
+
+    .relation-list {
+      margin-top: 12px;
+    }
+
+    .relation-title {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .relation-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .relation-tag {
+      padding: 4px 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .relation-tag:hover {
+      background: var(--bg-primary);
+    }
+
+    .relation-tag.upstream {
+      border-left: 2px solid var(--accent-blue);
+    }
+
+    .relation-tag.downstream {
+      border-left: 2px solid var(--accent-green);
+    }
+
+    /* Graph Container */
+    .graph-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #graph {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 100;
+    }
+
+    .toolbar-btn {
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent-blue);
+    }
+
+    .toolbar-btn.active {
+      background: rgba(88, 166, 255, 0.15);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .toolbar-select {
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s;
+    }
+
+    .toolbar-select:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent-blue);
+    }
+
+    .toolbar-select:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .toolbar-select option {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    /* Legend */
+    .legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      z-index: 100;
+    }
+
+    .legend-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* Loading */
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Color definitions for groups */
+    .color-cmd {
+      background: var(--accent-orange);
+    }
+
+    .color-analyzer {
+      background: var(--accent-blue);
+    }
+
+    .color-graph {
+      background: var(--accent-purple);
+    }
+
+    .color-storage {
+      background: var(--accent-green);
+    }
+
+    .color-impact {
+      background: var(--accent-red);
+    }
+
+    .color-export {
+      background: var(--accent-cyan);
+    }
+
+    .color-web {
+      background: #f778ba;
+    }
+
+    .color-mcp {
+      background: #d2a8ff;
+    }
+
+    .color-other {
+      background: var(--text-secondary);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">🔗</span>
+          <span class="logo-text">CRAG</span>
+        </div>
+        <div class="stats">
+          <div class="stat-item">
+            <span>函数</span>
+            <span class="stat-value" id="node-count">-</span>
+          </div>
+          <div class="stat-item">
+            <span>调用</span>
+            <span class="stat-value" id="edge-count">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <input type="text" class="search-input" id="search" placeholder="🔍 搜索函数...">
+      </div>
+
+      <div class="node-list" id="node-list">
+        <!-- Dynamically populated -->
+      </div>
+
+      <div class="detail-panel" id="detail-panel" style="display: none;">
+        <div class="detail-title" id="detail-title">函数详情</div>
+        <div id="detail-content"></div>
+      </div>
+    </aside>
+
+    <main class="graph-container">
+      <div id="graph"></div>
+
+      <div class="toolbar">
+        <button class="toolbar-btn" id="btn-fit" title="适应视图">
+          📐 适应
+        </button>
+        <button class="toolbar-btn" id="btn-physics" title="切换物理模拟">
+          ⚡ 物理
+        </button>
+        <button class="toolbar-btn" id="btn-impact" title="影响分析模式">
+          💥 影响分析
+        </button>
+        <select class="toolbar-select" id="layout-select" title="布局模式">
+          <option value="force">🌀 力导向</option>
+          <option value="hierarchicalUD">📊 层级 ↓</option>
+          <option value="hierarchicalLR">📊 层级 →</option>
+          <option value="radial">🎯 辐射状</option>
+          <option value="circular">⭕ 圆形</option>
+        </select>
+      </div>
+
+      <div class="legend">
+        <div class="legend-title">图例</div>
+        <div class="legend-item">
+          <div class="legend-color color-cmd"></div> cmd (入口)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-analyzer"></div> analyzer (分析)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-graph"></div> graph (图构建)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-storage"></div> storage (存储)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-impact"></div> impact (影响)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-export"></div> export (导出)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-web"></div> web (界面)
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-mcp"></div> mcp (协议)
+        </div>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>加载调用图...</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Color mapping for groups
+    const groupColors = {
+      cmd: '#f0883e',
+      analyzer: '#58a6ff',
+      graph: '#a371f7',
+      storage: '#3fb950',
+      impact: '#f85149',
+      export: '#39c5cf',
+      web: '#f778ba',
+      mcp: '#d2a8ff',
+      other: '#8b949e'
+    };
+
+    // Global state
+    let network = null;
+    let allNodes = [];
+    let allEdges = [];
+    let selectedNodeId = null;
+    let impactMode = false;
+    let physicsEnabled = true;
+    let currentLayout = 'force';
+
+    // Layout configurations
+    const layoutConfigs = {
+      force: {
+        physics: {
+          enabled: true,
+          solver: 'forceAtlas2Based',
+          forceAtlas2Based: {
+            gravitationalConstant: -50,
+            centralGravity: 0.01,
+            springLength: 100,
+            springConstant: 0.08
+          },
+          stabilization: { iterations: 100 }
+        },
+        layout: { randomSeed: 1 }
+      },
+      hierarchicalUD: {
+        physics: { enabled: false },
+        layout: {
+          hierarchical: {
+            enabled: true,
+            direction: 'UD',
+            sortMethod: 'directed',
+            levelSeparation: 80,
+            nodeSpacing: 120,
+            treeSpacing: 200,
+            blockShifting: true,
+            edgeMinimization: true
+          }
+        }
+      },
+      hierarchicalLR: {
+        physics: { enabled: false },
+        layout: {
+          hierarchical: {
+            enabled: true,
+            direction: 'LR',
+            sortMethod: 'directed',
+            levelSeparation: 150,
+            nodeSpacing: 80,
+            treeSpacing: 200,
+            blockShifting: true,
+            edgeMinimization: true
+          }
+        }
+      },
+      radial: {
+        physics: {
+          enabled: true,
+          solver: 'repulsion',
+          repulsion: {
+            centralGravity: 0.5,
+            springLength: 200,
+            springConstant: 0.01,
+            nodeDistance: 150,
+            damping: 0.09
+          },
+          stabilization: { iterations: 150 }
+        },
+        layout: { randomSeed: 1 }
+      },
+      circular: {
+        physics: { enabled: false },
+        layout: { randomSeed: 1 }
+      }
+    };
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadGraph();
+      setupEventListeners();
+    });
+
+    // Load graph data
+    async function loadGraph() {
+      try {
+        const [graphData, stats] = await Promise.all([
+          fetch('/api/graph').then(r => r.json()),
+          fetch('/api/stats').then(r => r.json())
+        ]);
+
+        document.getElementById('node-count').textContent = stats.nodeCount;
+        document.getElementById('edge-count').textContent = stats.edgeCount;
+
+        allNodes = graphData.nodes;
+        allEdges = graphData.edges;
+
+        renderNodeList(allNodes);
+        renderGraph(graphData);
+
+        document.getElementById('loading').style.display = 'none';
+      } catch (err) {
+        console.error('Failed to load graph:', err);
+        document.getElementById('loading').innerHTML = `
+                    <div style="color: #f85149;">加载失败: ${err.message}</div>
+                `;
+      }
+    }
+
+    // Render node list in sidebar
+    function renderNodeList(nodes) {
+      const container = document.getElementById('node-list');
+
+      // Group nodes by package group
+      const groups = {};
+      nodes.forEach(node => {
+        const group = node.group || 'other';
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(node);
+      });
+
+      // Sort groups
+      const groupOrder = ['cmd', 'analyzer', 'graph', 'storage', 'impact', 'export', 'web', 'mcp', 'other'];
+
+      let html = '';
+      groupOrder.forEach(group => {
+        if (!groups[group]) return;
+
+        const nodes = groups[group].sort((a, b) => a.label.localeCompare(b.label));
+        html += `
+                    <div class="node-group">
+                        <div class="node-group-header">
+                            <div class="node-dot color-${group}"></div>
+                            ${group} (${nodes.length})
+                        </div>
+                        ${nodes.map(n => `
+                            <div class="node-item" data-id="${n.id}" onclick="selectNode(${n.id})">
+                                <div class="node-dot color-${n.group}"></div>
+                                <span class="node-name" title="${n.fullName}">${n.label}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Render graph with vis.js
+    function renderGraph(data) {
+      const container = document.getElementById('graph');
+
+      const nodes = new vis.DataSet(data.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        title: `${n.fullName}\n${n.file}:${n.line}`,
+        color: {
+          background: groupColors[n.group] || groupColors.other,
+          border: groupColors[n.group] || groupColors.other,
+          highlight: {
+            background: '#ffffff',
+            border: groupColors[n.group] || groupColors.other
+          }
+        },
+        font: { color: '#e6edf3', size: 12 },
+        shape: 'dot',
+        size: 15,
+        group: n.group
+      })));
+
+      const edges = new vis.DataSet(data.edges.map((e, i) => ({
+        id: i,
+        from: e.from,
+        to: e.to,
+        arrows: 'to',
+        color: { color: '#30363d', highlight: '#58a6ff' },
+        smooth: { type: 'continuous' }
+      })));
+
+      const options = {
+        physics: {
+          enabled: true,
+          solver: 'forceAtlas2Based',
+          forceAtlas2Based: {
+            gravitationalConstant: -50,
+            centralGravity: 0.01,
+            springLength: 100,
+            springConstant: 0.08
+          },
+          stabilization: {
+            iterations: 100
+          }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 200,
+          zoomView: true,
+          dragView: true
+        },
+        nodes: {
+          borderWidth: 2,
+          shadow: true
+        },
+        edges: {
+          width: 1,
+          shadow: false
+        }
+      };
+
+      network = new vis.Network(container, { nodes, edges }, options);
+
+      // Event handlers
+      network.on('click', params => {
+        if (params.nodes.length > 0) {
+          selectNode(params.nodes[0]);
+        }
+      });
+
+      network.on('doubleClick', params => {
+        if (params.nodes.length > 0) {
+          showImpact(params.nodes[0]);
+        }
+      });
+    }
+
+    // Select a node
+    async function selectNode(nodeId) {
+      selectedNodeId = nodeId;
+
+      // Update sidebar selection
+      document.querySelectorAll('.node-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.id == nodeId);
+      });
+
+      // Focus in graph
+      if (network) {
+        network.focus(nodeId, {
+          scale: 1.2,
+          animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+        });
+        network.selectNodes([nodeId]);
+      }
+
+      // Load node details
+      try {
+        const data = await fetch(`/api/node/${nodeId}`).then(r => r.json());
+        showNodeDetail(data);
+      } catch (err) {
+        console.error('Failed to load node details:', err);
+      }
+    }
+
+    // Show node detail panel
+    function showNodeDetail(data) {
+      const panel = document.getElementById('detail-panel');
+      const content = document.getElementById('detail-content');
+      const title = document.getElementById('detail-title');
+
+      title.textContent = data.node.label;
+
+      let html = `
+                <div class="detail-row">
+                    <span class="detail-label">包</span>
+                    <span class="detail-value">${data.node.package}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">文件</span>
+                    <span class="detail-value">${data.node.file}:${data.node.line}</span>
+                </div>
+            `;
+
+      if (data.node.signature) {
+        html += `
+                    <div class="detail-row">
+                        <span class="detail-label">签名</span>
+                        <span class="detail-value"><code>${data.node.signature}</code></span>
+                    </div>
+                `;
+      }
+
+      if (data.callers && data.callers.length > 0) {
+        html += `
+                    <div class="relation-list">
+                        <div class="relation-title">⬆️ 上游调用者 (${data.callers.length})</div>
+                        <div class="relation-items">
+                            ${data.callers.map(c => `
+                                <span class="relation-tag upstream" onclick="selectNode(${c.id})">${c.label}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+      }
+
+      if (data.callees && data.callees.length > 0) {
+        html += `
+                    <div class="relation-list">
+                        <div class="relation-title">⬇️ 下游依赖 (${data.callees.length})</div>
+                        <div class="relation-items">
+                            ${data.callees.map(c => `
+                                <span class="relation-tag downstream" onclick="selectNode(${c.id})">${c.label}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+      }
+
+      content.innerHTML = html;
+      panel.style.display = 'block';
+    }
+
+    // Show impact analysis
+    async function showImpact(nodeId) {
+      try {
+        const data = await fetch(`/api/impact/${nodeId}?depth=3`).then(r => r.json());
+
+        // Highlight affected nodes
+        const affectedIds = new Set([
+          nodeId,
+          ...data.upstream.map(n => n.id),
+          ...data.downstream.map(n => n.id)
+        ]);
+
+        // Update node colors
+        const updates = allNodes.map(n => {
+          if (n.id === nodeId) {
+            return { id: n.id, color: { background: '#f0883e', border: '#f0883e' } };
+          } else if (data.upstream.some(u => u.id === n.id)) {
+            return { id: n.id, color: { background: '#58a6ff', border: '#58a6ff' } };
+          } else if (data.downstream.some(d => d.id === n.id)) {
+            return { id: n.id, color: { background: '#3fb950', border: '#3fb950' } };
+          } else {
+            return { id: n.id, color: { background: '#30363d', border: '#30363d' } };
+          }
+        });
+
+        network.body.data.nodes.update(updates);
+        impactMode = true;
+        document.getElementById('btn-impact').classList.add('active');
+
+      } catch (err) {
+        console.error('Failed to show impact:', err);
+      }
+    }
+
+    // Reset impact mode
+    function resetImpact() {
+      if (!impactMode) return;
+
+      const updates = allNodes.map(n => ({
+        id: n.id,
+        color: {
+          background: groupColors[n.group] || groupColors.other,
+          border: groupColors[n.group] || groupColors.other
+        }
+      }));
+
+      network.body.data.nodes.update(updates);
+      impactMode = false;
+      document.getElementById('btn-impact').classList.remove('active');
+    }
+
+    // Change layout
+    function changeLayout(layoutName) {
+      if (!network || !layoutConfigs[layoutName]) return;
+
+      currentLayout = layoutName;
+      const config = layoutConfigs[layoutName];
+
+      // Special handling for circular layout
+      if (layoutName === 'circular') {
+        arrangeCircular();
+        network.setOptions({ physics: { enabled: false }, layout: { hierarchical: { enabled: false } } });
+      } else {
+        // Reset hierarchical if switching away from it
+        if (layoutName === 'force' || layoutName === 'radial') {
+          config.layout.hierarchical = { enabled: false };
+        }
+        network.setOptions(config);
+      }
+
+      // Update physics button state
+      physicsEnabled = config.physics?.enabled ?? false;
+      document.getElementById('btn-physics').classList.toggle('active', physicsEnabled);
+
+      // Fit after layout change
+      setTimeout(() => {
+        network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+      }, 500);
+    }
+
+    // Arrange nodes in a circle
+    function arrangeCircular() {
+      const nodeIds = network.body.data.nodes.getIds();
+      const count = nodeIds.length;
+      const radius = Math.max(200, count * 10);
+      const centerX = 0;
+      const centerY = 0;
+
+      const positions = {};
+      nodeIds.forEach((id, i) => {
+        const angle = (2 * Math.PI * i) / count;
+        positions[id] = {
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle)
+        };
+      });
+
+      network.body.data.nodes.forEach(node => {
+        const pos = positions[node.id];
+        if (pos) {
+          network.body.data.nodes.update({ id: node.id, x: pos.x, y: pos.y });
+        }
+      });
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Search
+      const searchInput = document.getElementById('search');
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = allNodes.filter(n =>
+          n.label.toLowerCase().includes(query) ||
+          n.fullName.toLowerCase().includes(query)
+        );
+        renderNodeList(filtered);
+      });
+
+      // Toolbar buttons
+      document.getElementById('btn-fit').addEventListener('click', () => {
+        network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+      });
+
+      document.getElementById('btn-physics').addEventListener('click', (e) => {
+        physicsEnabled = !physicsEnabled;
+        network.setOptions({ physics: { enabled: physicsEnabled } });
+        e.target.classList.toggle('active', physicsEnabled);
+      });
+      document.getElementById('btn-physics').classList.add('active');
+
+      document.getElementById('btn-impact').addEventListener('click', () => {
+        if (impactMode) {
+          resetImpact();
+        } else if (selectedNodeId) {
+          showImpact(selectedNodeId);
+        }
+      });
+
+      // Layout selector
+      document.getElementById('layout-select').addEventListener('change', (e) => {
+        changeLayout(e.target.value);
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          resetImpact();
+        }
+        if (e.key === '/' && e.target !== searchInput) {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
+    }
+  </script>
+</body>
+
+</html>
