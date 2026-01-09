@@ -13,12 +13,13 @@ import (
 
 // Builder builds the code graph from SSA and call graph
 type Builder struct {
-	fset        *token.FileSet
-	pkgs        []*packages.Package
-	projectPkgs map[string]bool   // project package paths (to filter out dependencies)
-	nodeMap     map[string]int64  // maps function name to node ID
-	insertFn    func(*Node) (int64, error)
-	edgeFn      func(*Edge) error
+	fset          *token.FileSet
+	pkgs          []*packages.Package
+	projectPkgs   map[string]bool   // project package paths (to filter out dependencies)
+	nodeMap       map[string]int64  // maps function name to node ID
+	closureParent map[string]string // maps closure name to parent function name
+	insertFn      func(*Node) (int64, error)
+	edgeFn        func(*Edge) error
 }
 
 // NewBuilder creates a new graph builder
@@ -37,12 +38,13 @@ func NewBuilder(
 	}
 
 	return &Builder{
-		fset:        fset,
-		pkgs:        pkgs,
-		projectPkgs: projectPkgs,
-		nodeMap:     make(map[string]int64),
-		insertFn:    insertFn,
-		edgeFn:      edgeFn,
+		fset:          fset,
+		pkgs:          pkgs,
+		projectPkgs:   projectPkgs,
+		nodeMap:       make(map[string]int64),
+		closureParent: make(map[string]string),
+		insertFn:      insertFn,
+		edgeFn:        edgeFn,
 	}
 }
 
@@ -55,9 +57,51 @@ func (b *Builder) isProjectFunction(fn *ssa.Function) bool {
 	return b.projectPkgs[pkgPath]
 }
 
+// isClosure checks if a function is a closure (anonymous function)
+// Closures in SSA are named with $N suffix, e.g., "indexCmd$1"
+func (b *Builder) isClosure(fn *ssa.Function) bool {
+	name := fn.Name()
+	return strings.Contains(name, "$")
+}
+
+// getParentFunctionName extracts the parent function name from a closure name
+// e.g., "github.com/foo/bar.indexCmd$1" -> "github.com/foo/bar.indexCmd"
+func (b *Builder) getParentFunctionName(fn *ssa.Function) string {
+	name := fn.String()
+	if idx := strings.LastIndex(name, "$"); idx != -1 {
+		return name[:idx]
+	}
+	return name
+}
+
+// resolveToParent returns the parent function name if this is a closure,
+// otherwise returns the function's own name
+func (b *Builder) resolveToParent(fnName string) string {
+	if parent, ok := b.closureParent[fnName]; ok {
+		// Recursively resolve in case of nested closures (e.g., $1$1)
+		return b.resolveToParent(parent)
+	}
+	return fnName
+}
+
 // Build processes the call graph and stores nodes/edges
+// Closures are merged into their parent functions' call chains
 func (b *Builder) Build(cg *callgraph.Graph) error {
-	// First pass: create function nodes (only for project functions)
+	// First pass: identify closures and map them to parent functions
+	for fn := range cg.Nodes {
+		if fn == nil {
+			continue
+		}
+		if !b.isProjectFunction(fn) {
+			continue
+		}
+		if b.isClosure(fn) {
+			parentName := b.getParentFunctionName(fn)
+			b.closureParent[fn.String()] = parentName
+		}
+	}
+
+	// Second pass: create function nodes (skip closures)
 	for fn, node := range cg.Nodes {
 		if fn == nil || node == nil {
 			continue
@@ -73,6 +117,11 @@ func (b *Builder) Build(cg *callgraph.Graph) error {
 			continue
 		}
 
+		// Skip closures - they will be merged into parent
+		if b.isClosure(fn) {
+			continue
+		}
+
 		nodeID, err := b.createFunctionNode(fn)
 		if err != nil {
 			return fmt.Errorf("failed to create node for %s: %w", fn.String(), err)
@@ -80,13 +129,18 @@ func (b *Builder) Build(cg *callgraph.Graph) error {
 		b.nodeMap[fn.String()] = nodeID
 	}
 
-	// Second pass: create call edges
+	// Third pass: create call edges (merging closure edges to parents)
+	// Use a set to deduplicate edges
+	edgeSet := make(map[string]bool)
+
 	for fn, node := range cg.Nodes {
 		if fn == nil || node == nil {
 			continue
 		}
 
-		fromID, ok := b.nodeMap[fn.String()]
+		// Resolve caller to parent if it's a closure
+		callerName := b.resolveToParent(fn.String())
+		fromID, ok := b.nodeMap[callerName]
 		if !ok {
 			continue
 		}
@@ -96,10 +150,24 @@ func (b *Builder) Build(cg *callgraph.Graph) error {
 				continue
 			}
 
-			toID, ok := b.nodeMap[edge.Callee.Func.String()]
+			// Resolve callee to parent if it's a closure
+			calleeName := b.resolveToParent(edge.Callee.Func.String())
+			toID, ok := b.nodeMap[calleeName]
 			if !ok {
 				continue
 			}
+
+			// Skip self-loops that may arise from closure merging
+			if fromID == toID {
+				continue
+			}
+
+			// Deduplicate edges
+			edgeKey := fmt.Sprintf("%d->%d", fromID, toID)
+			if edgeSet[edgeKey] {
+				continue
+			}
+			edgeSet[edgeKey] = true
 
 			// Get call site info
 			var callSiteFile string

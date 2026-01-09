@@ -47,15 +47,29 @@ type NodeData struct {
 }
 
 type EdgeData struct {
-	From int64  `json:"from"`
-	To   int64  `json:"to"`
-	Kind string `json:"kind"`
+	From         int64  `json:"from"`
+	To           int64  `json:"to"`
+	Kind         string `json:"kind"`
+	CallSiteLine int    `json:"callSiteLine"` // 调用发生的行号，用于排序执行顺序
 }
 
 type ImpactData struct {
 	Target    NodeData   `json:"target"`
 	Upstream  []NodeData `json:"upstream"`
 	Downstream []NodeData `json:"downstream"`
+}
+
+// CallChainNode represents a node in the hierarchical call chain
+type CallChainNode struct {
+	NodeData
+	Children []CallChainNode `json:"children,omitempty"`
+}
+
+// CallChainData represents hierarchical call chain data
+type CallChainData struct {
+	Target   NodeData        `json:"target"`
+	Callers  []CallChainNode `json:"callers"`  // Who calls this function (upstream)
+	Callees  []CallChainNode `json:"callees"`  // What this function calls (downstream)
 }
 
 type StatsData struct {
@@ -72,6 +86,7 @@ func (s *Server) Run() error {
 	mux.HandleFunc("/api/nodes", s.handleNodes)
 	mux.HandleFunc("/api/node/", s.handleNode)
 	mux.HandleFunc("/api/impact/", s.handleImpact)
+	mux.HandleFunc("/api/chain/", s.handleCallChain)
 	mux.HandleFunc("/api/search", s.handleSearch)
 	mux.HandleFunc("/api/stats", s.handleStats)
 
@@ -112,9 +127,10 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 
 	for _, edge := range edges {
 		data.Edges = append(data.Edges, EdgeData{
-			From: edge.FromID,
-			To:   edge.ToID,
-			Kind: string(edge.Kind),
+			From:         edge.FromID,
+			To:           edge.ToID,
+			Kind:         string(edge.Kind),
+			CallSiteLine: edge.CallSiteLine,
 		})
 	}
 
@@ -200,6 +216,109 @@ func (s *Server) handleImpact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, data)
+}
+
+// handleCallChain returns hierarchical call chain for a node
+func (s *Server) handleCallChain(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/chain/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid node ID", http.StatusBadRequest)
+		return
+	}
+
+	depth := 2
+	if d := r.URL.Query().Get("depth"); d != "" {
+		if parsed, err := strconv.Atoi(d); err == nil {
+			depth = parsed
+		}
+	}
+
+	node, err := s.db.GetNodeByID(id)
+	if err != nil || node == nil {
+		http.Error(w, "Node not found", http.StatusNotFound)
+		return
+	}
+
+	// Build hierarchical callers (upstream)
+	callers := s.buildCallersTree(id, depth, make(map[int64]bool))
+
+	// Build hierarchical callees (downstream)
+	callees := s.buildCalleesTree(id, depth, make(map[int64]bool))
+
+	data := CallChainData{
+		Target:  nodeToData(node),
+		Callers: callers,
+		Callees: callees,
+	}
+
+	writeJSON(w, data)
+}
+
+// buildCallersTree recursively builds the callers tree
+func (s *Server) buildCallersTree(nodeID int64, depth int, visited map[int64]bool) []CallChainNode {
+	if depth <= 0 {
+		return nil
+	}
+
+	callers, err := s.db.GetDirectCallers(nodeID)
+	if err != nil || len(callers) == 0 {
+		return nil
+	}
+
+	result := make([]CallChainNode, 0, len(callers))
+	for _, caller := range callers {
+		if visited[caller.ID] {
+			continue // Avoid cycles
+		}
+		visited[caller.ID] = true
+
+		chainNode := CallChainNode{
+			NodeData: nodeToData(caller),
+		}
+
+		// Recursively get callers of this caller
+		if depth > 1 {
+			chainNode.Children = s.buildCallersTree(caller.ID, depth-1, visited)
+		}
+
+		result = append(result, chainNode)
+	}
+
+	return result
+}
+
+// buildCalleesTree recursively builds the callees tree
+func (s *Server) buildCalleesTree(nodeID int64, depth int, visited map[int64]bool) []CallChainNode {
+	if depth <= 0 {
+		return nil
+	}
+
+	callees, err := s.db.GetDirectCallees(nodeID)
+	if err != nil || len(callees) == 0 {
+		return nil
+	}
+
+	result := make([]CallChainNode, 0, len(callees))
+	for _, callee := range callees {
+		if visited[callee.ID] {
+			continue // Avoid cycles
+		}
+		visited[callee.ID] = true
+
+		chainNode := CallChainNode{
+			NodeData: nodeToData(callee),
+		}
+
+		// Recursively get callees of this callee
+		if depth > 1 {
+			chainNode.Children = s.buildCalleesTree(callee.ID, depth-1, visited)
+		}
+
+		result = append(result, chainNode)
+	}
+
+	return result
 }
 
 // handleSearch searches for nodes by pattern

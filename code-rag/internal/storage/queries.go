@@ -2,7 +2,6 @@ package storage
 
 import (
 	"database/sql"
-	"fmt"
 
 	"github.com/zheng/crag/internal/graph"
 )
@@ -226,7 +225,6 @@ func (db *DB) GetCallEdgesForNode(nodeID int64) ([]*graph.Edge, error) {
 
 // GetAllFunctions returns all function nodes
 func (db *DB) GetAllFunctions() ([]*graph.Node, error) {
-	printhi1()
 	rows, err := db.conn.Query(
 		`SELECT id, kind, name, package, file, line, signature, doc FROM nodes WHERE kind = 'func'`,
 	)
@@ -237,10 +235,6 @@ func (db *DB) GetAllFunctions() ([]*graph.Node, error) {
 	return scanNodes(rows)
 }
 
-func printhi1() {
-	fmt.Println("his")
-	fmt.Println("hi")
-}
 
 // GetAllEdges returns all edges in the database
 func (db *DB) GetAllEdges() ([]*graph.Edge, error) {

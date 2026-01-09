@@ -3,7 +3,6 @@ package storage
 import (
 	"database/sql"
 	_ "embed"
-	"fmt"
 
 	_ "modernc.org/sqlite"
 )
@@ -51,11 +50,6 @@ func (db *DB) Clear() error {
 
 // Conn returns the underlying database connection for advanced queries
 func (db *DB) Conn() *sql.DB {
-	hi()
 	return db.conn
 }
 
-func hi() {
-	fmt.Println("his")
-	fmt.Println("his2")
-}
