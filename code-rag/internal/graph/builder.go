@@ -16,6 +16,7 @@ type Builder struct {
 	fset          *token.FileSet
 	pkgs          []*packages.Package
 	projectPkgs   map[string]bool   // project package paths (to filter out dependencies)
+	targetPkgs    map[string]bool   // target packages to insert (nil means all)
 	nodeMap       map[string]int64  // maps function name to node ID
 	closureParent map[string]string // maps closure name to parent function name
 	insertFn      func(*Node) (int64, error)
@@ -41,10 +42,24 @@ func NewBuilder(
 		fset:          fset,
 		pkgs:          pkgs,
 		projectPkgs:   projectPkgs,
+		targetPkgs:    nil, // nil means insert all packages
 		nodeMap:       make(map[string]int64),
 		closureParent: make(map[string]string),
 		insertFn:      insertFn,
 		edgeFn:        edgeFn,
+	}
+}
+
+// SetTargetPackages sets the target packages for incremental mode
+// Only functions in these packages will be inserted into the database
+func (b *Builder) SetTargetPackages(pkgPaths []string) {
+	if len(pkgPaths) == 0 {
+		b.targetPkgs = nil
+		return
+	}
+	b.targetPkgs = make(map[string]bool)
+	for _, path := range pkgPaths {
+		b.targetPkgs[path] = true
 	}
 }
 
@@ -55,6 +70,20 @@ func (b *Builder) isProjectFunction(fn *ssa.Function) bool {
 	}
 	pkgPath := fn.Pkg.Pkg.Path()
 	return b.projectPkgs[pkgPath]
+}
+
+// isTargetFunction checks if a function should be inserted into the database
+// In incremental mode, only functions in target packages are inserted
+func (b *Builder) isTargetFunction(fn *ssa.Function) bool {
+	if b.targetPkgs == nil {
+		// No filter, insert all project functions
+		return b.isProjectFunction(fn)
+	}
+	if fn.Pkg == nil {
+		return false
+	}
+	pkgPath := fn.Pkg.Pkg.Path()
+	return b.targetPkgs[pkgPath]
 }
 
 // isClosure checks if a function is a closure (anonymous function)
@@ -119,6 +148,11 @@ func (b *Builder) Build(cg *callgraph.Graph) error {
 
 		// Skip closures - they will be merged into parent
 		if b.isClosure(fn) {
+			continue
+		}
+
+		// In incremental mode, only insert functions in target packages
+		if !b.isTargetFunction(fn) {
 			continue
 		}
 

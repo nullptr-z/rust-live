@@ -104,6 +104,30 @@ func analyzeCmd() *cobra.Command {
 				return fmt.Errorf("未找到有效的 Go 包")
 			}
 
+			// Convert changed package dirs to full package paths for incremental mode
+			if incremental && len(changedPackages) > 0 {
+				fullPkgPaths := make([]string, 0, len(changedPackages))
+				for _, relativePath := range changedPackages {
+					// Find matching package by directory
+					for _, pkg := range pkgs {
+						if pkg.PkgPath != "" {
+							// Extract the last component of package path
+							// e.g., "github.com/example/mockproject/pkg05" -> "pkg05"
+							parts := strings.Split(pkg.PkgPath, "/")
+							lastPart := parts[len(parts)-1]
+
+							// Match against relative path (e.g., "./pkg05")
+							if relativePath == "./"+lastPart || relativePath == lastPart {
+								fullPkgPaths = append(fullPkgPaths, pkg.PkgPath)
+								break
+							}
+						}
+					}
+				}
+				changedPackages = fullPkgPaths
+				fmt.Printf("转换为完整包路径: %v\n", changedPackages)
+			}
+
 			// Build SSA
 			prog, _ := analyzer.BuildSSA(pkgs)
 
@@ -120,12 +144,29 @@ func analyzeCmd() *cobra.Command {
 			}
 			defer db.Close()
 
-			// Clear existing data (always full rebuild for correctness)
-			// Incremental mode only skips analysis when no changes detected
-			if err := db.Clear(); err != nil {
-				return fmt.Errorf("清空数据库失败: %w", err)
+			// Incremental mode: only delete changed packages' data
+			if incremental && len(changedPackages) > 0 {
+				fmt.Printf("增量模式：删除 %d 个变更包的旧数据...\n", len(changedPackages))
+				deletedCount, err := db.DeleteNodesByPackage(changedPackages)
+				if err != nil {
+					fmt.Printf("警告：删除旧数据失败: %v，将执行全量重建\n", err)
+					if err := db.Clear(); err != nil {
+						return fmt.Errorf("清空数据库失败: %w", err)
+					}
+				} else {
+					fmt.Printf("已删除 %d 个旧节点\n", deletedCount)
+					// Clean up orphan edges
+					orphanCount, _ := db.DeleteOrphanEdges()
+					if orphanCount > 0 {
+						fmt.Printf("清理 %d 条孤立边\n", orphanCount)
+					}
+				}
+			} else {
+				// Full rebuild mode
+				if err := db.Clear(); err != nil {
+					return fmt.Errorf("清空数据库失败: %w", err)
+				}
 			}
-			_ = changedPackages // Used only for change detection above
 
 			// Build and store graph
 			builder := graph.NewBuilder(
@@ -134,6 +175,12 @@ func analyzeCmd() *cobra.Command {
 				db.InsertNode,
 				db.InsertEdge,
 			)
+
+			// Set target packages for incremental mode
+			if incremental && len(changedPackages) > 0 {
+				builder.SetTargetPackages(changedPackages)
+				fmt.Printf("增量模式：仅插入变更包的节点\n")
+			}
 
 			if err := builder.Build(cg); err != nil {
 				return fmt.Errorf("构建图失败: %w", err)

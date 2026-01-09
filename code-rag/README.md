@@ -1,38 +1,38 @@
-# crag - Code RAG 调用图谱工具
+# crag - Code RAG Call Graph Tool
 
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**crag** (Code RAG) 是一个 Go 代码静态分析工具，用于构建函数调用图谱，帮助追踪代码变更的影响范围，减少 AI 编码时的漏改问题。
+**crag** (Code RAG) is a Go static analysis tool for building function call graphs, helping track the impact scope of code changes and reducing missed modifications during AI-assisted coding.
 
-## 问题背景
+## Problem Statement
 
-使用 AI 辅助编码时，常遇到两个痛点：
+When using AI-assisted coding, two common pain points emerge:
 
-1. **漏改问题**：修改某个函数后，AI 不知道还有哪些地方调用了它，导致下游代码未同步更新
-2. **失忆问题**：跨对话时 AI 无法保持对项目结构的认知，每次都要重新理解
+1. **Missed Modifications**: After modifying a function, AI doesn't know where else it's called, leading to downstream code not being updated synchronously
+2. **Memory Loss**: Across conversations, AI cannot maintain awareness of the project structure and must re-understand it each time
 
-## 解决方案
+## Solution
 
-crag 通过精确的静态分析构建函数调用图谱：
+crag builds function call graphs through precise static analysis:
 
-- 使用 `golang.org/x/tools/go/ssa` 构建 SSA 中间表示
-- 使用 VTA (Variable Type Analysis) 精确处理 interface 调用
-- 将调用关系持久化到 SQLite，支持快速查询
-- 提供影响分析报告，可直接作为 AI 上下文
+- Uses `golang.org/x/tools/go/ssa` to build SSA intermediate representation
+- Uses VTA (Variable Type Analysis) to accurately handle interface calls
+- Persists call relationships to SQLite for fast queries
+- Provides impact analysis reports that can be used directly as AI context
 
-## 最佳实践工作流
+## Best Practice Workflow
 
-1. 项目初始化
+1. Project Initialization
 
 ```sh
 crag analyze . -o .crag.db
 ```
 
-2. 配置 Cursor/Claude MCP
+2. Configure Cursor/Claude MCP
 
 ```json
-// .cursor/mcp.json 或 claude_desktop_config.json
+// .cursor/mcp.json or claude_desktop_config.json
 {
   "mcpServers": {
     "crag": {
@@ -43,256 +43,256 @@ crag analyze . -o .crag.db
 }
 ```
 
-3. 保持数据库更新（二选一）
+3. Keep Database Updated (Choose One)
 
 ```sh
-# 方式 1：watch 模式（开发时）
+# Option 1: watch mode (during development)
 crag watch . -d .crag.db
 ```
 
-# 方式 2：git hook（提交时）
+# Option 2: git hook (on commit)
 
 ```sh
 # .git/hooks/post-commit
 crag analyze . -i -o .crag.db
 ```
 
-## 对话示例
+## Conversation Example
 
 ```sh
-你：修改 service.ProcessRequest 的参数，需要改哪些地方？
+You: What needs to be changed if I modify the parameters of service.ProcessRequest?
 
-AI（自动调用 crag）：
-→ 调用 impact("ProcessRequest")
-← 获得完整影响分析报告
+AI (automatically calls crag):
+→ Calls impact("ProcessRequest")
+← Gets complete impact analysis report
 
-AI 回复：需要修改以下 5 个地方：
+AI responds: You need to modify the following 5 places:
 
-1. handler/api.go:42 - HandleAPI() 直接调用
-2. middleware/auth.go:78 - AuthMiddleware() 直接调用
+1. handler/api.go:42 - HandleAPI() direct call
+2. middleware/auth.go:78 - AuthMiddleware() direct call
 3. ...
 ```
 
-## 安装
+## Installation
 
 ```bash
-# 从源码安装
+# Install from source
 git clone https://github.com/zheng/crag.git
 cd crag
 go build -o crag ./cmd/crag/
 
-# 或直接 go install
+# Or install directly
 go install github.com/zheng/crag/cmd/crag@latest
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 1. 分析项目，生成调用图谱
+# 1. Analyze project and generate call graph
 crag analyze /path/to/your/go/project -o .crag.db
 
-# 2. 导出完整 RAG 文档
+# 2. Export complete RAG document
 crag export -d .crag.db -o crag.md
 
-# 3. 查看某函数的影响范围
+# 3. View impact scope of a function
 crag impact "main.HandleRequest" -d .crag.db
 
-# 4. 查看谁调用了某函数
+# 4. See who calls a function
 crag upstream "pkg/db.Query" -d .crag.db --depth 3
 
-# 5. 查看某函数调用了谁
+# 5. See what a function calls
 crag downstream "pkg/service.Process" -d .crag.db --depth 2
 
-# 6. 搜索函数
+# 6. Search for functions
 crag search "Handler" -d .crag.db
 
-# 7. 列出所有函数
+# 7. List all functions
 crag list -d .crag.db --limit 20
 
-# 8. 启动 watch 模式 (文件变更自动更新)
+# 8. Start watch mode (auto-update on file changes)
 crag watch . -d .crag.db
 
-# 9. 启动 Web UI 可视化 (交互式调用图)
+# 9. Start Web UI visualization (interactive call graph)
 crag serve -d .crag.db
 ```
 
-## 命令详解
+## Command Details
 
-### `analyze` - 分析项目
+### `analyze` - Analyze Project
 
 ```bash
-crag analyze [项目路径] [flags]
+crag analyze [project-path] [flags]
 
 Flags:
-  -o, --output string   输出数据库文件路径
-  -i, --incremental     增量分析模式 (只在有 git 变更时分析)
-      --base string     git 比较基准分支 (默认 "HEAD")
+  -o, --output string   Output database file path
+  -i, --incremental     Incremental analysis mode (only analyze when git changes exist)
+      --base string     Git comparison base branch (default "HEAD")
 ```
 
-**增量分析示例：**
+**Incremental Analysis Examples:**
 
 ```bash
-# 检测未提交的变更，无变更时跳过分析
+# Detect uncommitted changes, skip analysis if no changes
 crag analyze . -i
 
-# 与上次提交比较
+# Compare with last commit
 crag analyze . -i --base HEAD~1
 
-# 与特定分支比较
+# Compare with specific branch
 crag analyze . -i --base main
 ```
 
-### `impact` - 影响分析
+### `impact` - Impact Analysis
 
 ```bash
-crag impact <函数名> [flags]
+crag impact <function-name> [flags]
 
 Flags:
-  --upstream-depth int    上游递归深度 (默认 3)
-  --downstream-depth int  下游递归深度 (默认 2)
-  --format string         输出格式: text/json/markdown (默认 "text")
+  --upstream-depth int    Upstream recursion depth (default 3)
+  --downstream-depth int  Downstream recursion depth (default 2)
+  --format string         Output format: text/json/markdown (default "text")
 ```
 
-输出示例：
+Output example:
 
 ```markdown
-## 变更影响分析: pkg/service.HandleRequest
+## Change Impact Analysis: pkg/service.HandleRequest
 
-**位置:** internal/service/handler.go:42
-**签名:** `func(ctx context.Context, req *Request) (*Response, error)`
+**Location:** internal/service/handler.go:42
+**Signature:** `func(ctx context.Context, req *Request) (*Response, error)`
 
-### 直接调用者 (需检查是否需要同步修改)
+### Direct Callers (check if synchronization needed)
 
-| 函数              | 文件                     | 行号 |
+| Function          | File                     | Line |
 | ----------------- | ------------------------ | ---- |
 | main.main         | cmd/main.go              | 42   |
 | handler.ServeHTTP | internal/handler/http.go | 87   |
 
-### 下游依赖 (本函数调用的)
+### Downstream Dependencies (called by this function)
 
-| 函数     | 文件                 | 行号 |
+| Function | File                 | Line |
 | -------- | -------------------- | ---- |
 | db.Query | internal/db/query.go | 15   |
 ```
 
-### `upstream` / `downstream` - 调用链查询
+### `upstream` / `downstream` - Call Chain Query
 
 ```bash
-crag upstream <函数名> [flags]
-crag downstream <函数名> [flags]
+crag upstream <function-name> [flags]
+crag downstream <function-name> [flags]
 
 Flags:
-  --depth int      递归深度，0 表示无限 (默认 0)
-  --format string  输出格式: text/json/markdown
+  --depth int      Recursion depth, 0 means unlimited (default 0)
+  --format string  Output format: text/json/markdown
 ```
 
-### `watch` - 监控模式
+### `watch` - Watch Mode
 
-启动 watch 模式，监控项目中的 Go 文件变更，自动重新分析并更新调用图：
+Start watch mode to monitor Go file changes in the project and automatically re-analyze and update the call graph:
 
 ```bash
-crag watch [项目路径] [flags]
+crag watch [project-path] [flags]
 
 Flags:
-  --debounce int   防抖延迟，毫秒 (默认 500)
+  --debounce int   Debounce delay in milliseconds (default 500)
 ```
 
-**使用示例：**
+**Usage Examples:**
 
 ```bash
-# 监控当前目录
+# Monitor current directory
 crag watch .
 
-# 指定数据库路径
+# Specify database path
 crag watch . -d .crag.db
 
-# 设置 1 秒防抖延迟（适用于频繁保存的场景）
+# Set 1 second debounce delay (for frequent save scenarios)
 crag watch . --debounce 1000
 ```
 
-**特性：**
+**Features:**
 
-- 自动递归监控所有目录
-- 防抖处理，避免频繁触发分析
-- 忽略测试文件（`*_test.go`）
-- 忽略隐藏目录、`vendor`、`node_modules` 等
+- Automatically monitors all directories recursively
+- Debounce handling to avoid frequent analysis triggers
+- Ignores test files (`*_test.go`)
+- Ignores hidden directories, `vendor`, `node_modules`, etc.
 
-### `serve` - Web UI 可视化
+### `serve` - Web UI Visualization
 
-启动本地 Web 服务器，提供交互式调用图可视化界面：
+Start a local web server providing an interactive call graph visualization interface:
 
 ```bash
 crag serve [flags]
 
 Flags:
-  -p, --port int   服务器端口 (默认 9998)
+  -p, --port int   Server port (default 9998)
 ```
 
-**使用示例：**
+**Usage Examples:**
 
 ```bash
-# 使用默认端口 9998
+# Use default port 9998
 crag serve -d .crag.db
 
-# 指定端口
+# Specify port
 crag serve -d .crag.db -p 3000
 ```
 
-**功能特性：**
+**Features:**
 
-- 🔍 **交互式图谱**：缩放、拖拽、点击节点
-- 🎯 **影响分析**：双击节点高亮上下游调用链
-- 🔎 **搜索过滤**：快速定位目标函数
-- 📊 **详情面板**：查看节点的调用者/被调用者
-- 🎨 **按包着色**：不同模块用不同颜色区分
+- 🔍 **Interactive Graph**: Zoom, drag, click nodes
+- 🎯 **Impact Analysis**: Double-click nodes to highlight upstream/downstream call chains
+- 🔎 **Search & Filter**: Quickly locate target functions
+- 📊 **Details Panel**: View callers/callees of nodes
+- 🎨 **Color by Package**: Different modules in different colors
 
-**快捷键：**
+**Shortcuts:**
 
-- `/` 聚焦搜索框
-- `Esc` 重置高亮
+- `/` Focus search box
+- `Esc` Reset highlights
 
-### `export` - 导出 RAG 文档
+### `export` - Export RAG Document
 
-生成完整的项目调用图谱文档，可直接作为 AI 编码上下文：
+Generate complete project call graph documentation that can be used directly as AI coding context:
 
 ```bash
 crag export [flags]
 
 Flags:
-  -o, --output string   输出文件路径 (默认输出到 stdout)
-  -i, --incremental     增量导出 (只输出 git 变更部分)
-      --base string     git 比较基准 (默认 "HEAD")
-      --no-mermaid      不生成 Mermaid 图表
+  -o, --output string   Output file path (default output to stdout)
+  -i, --incremental     Incremental export (only output git changed parts)
+      --base string     Git comparison base (default "HEAD")
+      --no-mermaid      Don't generate Mermaid diagrams
 ```
 
-**使用示例：**
+**Usage Examples:**
 
 ```bash
-# 导出完整 RAG 文档
+# Export complete RAG document
 crag export -d .crag.db -o crag.md
 
-# 增量导出（只输出变更部分）
+# Incremental export (only output changed parts)
 crag export -d .crag.db -i -o changes.md
 
-# 与上次提交比较的变更
+# Changes compared to last commit
 crag export -d .crag.db -i --base HEAD~1
 ```
 
-**输出内容：**
+**Output Contents:**
 
-- 项目统计（节点数、边数）
-- Mermaid 调用关系图
-- 按包分组的函数列表（位置、签名、调用关系）
-- 修改影响速查表
+- Project statistics (node count, edge count)
+- Mermaid call relationship diagram
+- Function list grouped by package (location, signature, call relationships)
+- Modification impact quick reference table
 
-## MCP 集成 (推荐)
+## MCP Integration (Recommended)
 
-crag 实现了 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)，让 AI 助手（Cursor、Claude 等）可以**直接查询**调用图，无需复制粘贴。
+crag implements the [MCP (Model Context Protocol)](https://modelcontextprotocol.io/), allowing AI assistants (Cursor, Claude, etc.) to **directly query** the call graph without copy-pasting.
 
-### 配置 Cursor
+### Configure Cursor
 
-1. 确保 `crag` 在 PATH 中
-2. 在 Cursor 设置中添加 MCP 服务器配置（`.cursor/mcp.json`）：
+1. Ensure `crag` is in PATH
+2. Add MCP server configuration in Cursor settings (`.cursor/mcp.json`):
 
 ```json
 {
@@ -305,51 +305,51 @@ crag 实现了 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)�
 }
 ```
 
-3. 重启 Cursor，AI 即可直接使用以下工具：
+3. Restart Cursor, and AI can directly use the following tools:
 
-| 工具         | 功能                 |
-| ------------ | -------------------- |
-| `impact`     | 分析函数变更影响范围 |
-| `upstream`   | 查询上游调用者       |
-| `downstream` | 查询下游被调用者     |
-| `search`     | 搜索函数             |
-| `list`       | 列出所有函数         |
+| Tool         | Function                        |
+| ------------ | ------------------------------- |
+| `impact`     | Analyze function change impact  |
+| `upstream`   | Query upstream callers          |
+| `downstream` | Query downstream callees        |
+| `search`     | Search functions                |
+| `list`       | List all functions              |
 
-### 使用示例
+### Usage Example
 
-配置后，AI 会自动调用这些工具。你可以直接问：
+After configuration, AI will automatically call these tools. You can directly ask:
 
 ```
-"LoadPackages 函数被哪些地方调用了？"
-"如果我修改 BuildSSA，会影响哪些函数？"
-"搜索所有包含 Handler 的函数"
+"Where is the LoadPackages function called?"
+"If I modify BuildSSA, which functions will be affected?"
+"Search for all functions containing Handler"
 ```
 
-## AI 编码工作流
+## AI Coding Workflow
 
-### 方式一：MCP 直接查询（推荐）
+### Method 1: MCP Direct Query (Recommended)
 
 ```bash
-# 1. 分析项目
+# 1. Analyze project
 crag analyze . -o .crag.db
 
-# 2. 配置 MCP (见上方)
+# 2. Configure MCP (see above)
 
-# 3. 直接与 AI 对话，AI 会自动查询调用图
+# 3. Talk directly to AI, it will automatically query the call graph
 ```
 
-### 方式二：导出 RAG 文档
+### Method 2: Export RAG Document
 
 ```bash
-# 1. 导出完整 RAG
+# 1. Export complete RAG
 crag export -d .crag.db -o crag.md
 
-# 2. 将 crag.md 作为 AI 上下文
+# 2. Use crag.md as AI context
 ```
 
-### 持续更新
+### Continuous Updates
 
-**方式一：通过 git hook 自动更新**
+**Method 1: Auto-update via git hook**
 
 ```bash
 # .git/hooks/post-commit
@@ -357,79 +357,79 @@ crag export -d .crag.db -o crag.md
 crag analyze . -i -o .crag.db
 ```
 
-**方式二：使用 watch 模式实时更新**
+**Method 2: Use watch mode for real-time updates**
 
 ```bash
-# 在另一个终端启动 watch 模式
+# Start watch mode in another terminal
 crag watch . -d .crag.db
 
-# 输出示例：
-# 执行初始分析...
-# 初始分析完成: 42 节点, 128 边
+# Output example:
+# Performing initial analysis...
+# Initial analysis complete: 42 nodes, 128 edges
 #
-# 开始监控目录: .
-# 数据库路径: .crag.db
-# 防抖延迟: 500ms
+# Starting to monitor directory: .
+# Database path: .crag.db
+# Debounce delay: 500ms
 #
-# 按 Ctrl+C 停止...
+# Press Ctrl+C to stop...
 #
-# [15:04:05] 检测到变更，开始分析...
-# [15:04:06] 分析完成: 43 节点, 131 边 (耗时 892ms)
+# [15:04:05] Change detected, starting analysis...
+# [15:04:06] Analysis complete: 43 nodes, 131 edges (took 892ms)
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 crag/
-├── cmd/crag/main.go              # CLI 入口
+├── cmd/crag/main.go              # CLI entry point
 ├── internal/
-│   ├── analyzer/                 # 静态分析
-│   │   ├── loader.go            # go/packages 加载
-│   │   ├── ssa.go               # SSA 构建
-│   │   ├── callgraph.go         # VTA 调用图
-│   │   └── git.go               # Git 变更检测
-│   ├── graph/                    # 图数据结构
-│   │   ├── node.go              # 节点定义
-│   │   ├── edge.go              # 边定义
-│   │   └── builder.go           # 图构建器
-│   ├── storage/                  # 数据持久化
-│   │   ├── schema.sql           # SQLite 表结构
-│   │   ├── db.go                # 数据库操作
-│   │   └── queries.go           # 查询方法
+│   ├── analyzer/                 # Static analysis
+│   │   ├── loader.go            # go/packages loading
+│   │   ├── ssa.go               # SSA construction
+│   │   ├── callgraph.go         # VTA call graph
+│   │   └── git.go               # Git change detection
+│   ├── graph/                    # Graph data structures
+│   │   ├── node.go              # Node definition
+│   │   ├── edge.go              # Edge definition
+│   │   └── builder.go           # Graph builder
+│   ├── storage/                  # Data persistence
+│   │   ├── schema.sql           # SQLite schema
+│   │   ├── db.go                # Database operations
+│   │   └── queries.go           # Query methods
 │   ├── impact/
-│   │   └── analyzer.go          # 影响分析
+│   │   └── analyzer.go          # Impact analysis
 │   ├── export/
-│   │   └── exporter.go          # RAG 文档导出
+│   │   └── exporter.go          # RAG document export
 │   ├── mcp/
-│   │   └── server.go            # MCP 服务器
+│   │   └── server.go            # MCP server
 │   ├── web/                      # Web UI
-│   │   ├── server.go            # HTTP API 服务器
-│   │   └── static/index.html    # 前端页面 (vis.js)
+│   │   ├── server.go            # HTTP API server
+│   │   └── static/index.html    # Frontend page (vis.js)
 │   └── watcher/
-│       └── watcher.go           # 文件监控器
+│       └── watcher.go           # File watcher
 ├── go.mod
-└── mcp.json                      # MCP 配置示例
+└── mcp.json                      # MCP configuration example
 ```
 
-## 技术栈
+## Tech Stack
 
-- **静态分析**: `golang.org/x/tools/go/packages`, `go/ssa`, `go/callgraph/vta`
-- **数据存储**: `modernc.org/sqlite` (纯 Go 实现)
-- **CLI 框架**: `github.com/spf13/cobra`
+- **Static Analysis**: `golang.org/x/tools/go/packages`, `go/ssa`, `go/callgraph/vta`
+- **Data Storage**: `modernc.org/sqlite` (pure Go implementation)
+- **CLI Framework**: `github.com/spf13/cobra`
 
-## 限制
+## Limitations
 
-- 目前仅支持 Go 项目
-- 只分析项目自身代码，不包含依赖包
+- Currently only supports Go projects
+- Only analyzes project's own code, not including dependencies
 
-## 后续规划
+## Future Plans
 
-- [x] 增量分析：检测 git 变更，无变更时跳过分析
-- [x] RAG 导出：生成完整/增量的 Markdown 文档
-- [x] MCP 集成：让 AI 直接查询调用图
-- [x] watch 模式：文件变更自动更新
-- [x] Web UI：可视化调用图（交互式力导向图）
-- [ ] interface 实现分析：显示谁实现了什么接
+- [x] Incremental analysis: Detect git changes, skip analysis when no changes
+- [x] RAG export: Generate complete/incremental Markdown documents
+- [x] MCP integration: Let AI directly query call graph
+- [x] watch mode: Auto-update on file changes
+- [x] Web UI: Visualize call graph (interactive force-directed graph)
+- [ ] Interface implementation analysis: Show who implements which interface
 
 ## License
 

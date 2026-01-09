@@ -54,8 +54,8 @@ type EdgeData struct {
 }
 
 type ImpactData struct {
-	Target    NodeData   `json:"target"`
-	Upstream  []NodeData `json:"upstream"`
+	Target     NodeData   `json:"target"`
+	Upstream   []NodeData `json:"upstream"`
 	Downstream []NodeData `json:"downstream"`
 }
 
@@ -67,9 +67,9 @@ type CallChainNode struct {
 
 // CallChainData represents hierarchical call chain data
 type CallChainData struct {
-	Target   NodeData        `json:"target"`
-	Callers  []CallChainNode `json:"callers"`  // Who calls this function (upstream)
-	Callees  []CallChainNode `json:"callees"`  // What this function calls (downstream)
+	Target  NodeData        `json:"target"`
+	Callers []CallChainNode `json:"callers"` // Who calls this function (upstream)
+	Callees []CallChainNode `json:"callees"` // What this function calls (downstream)
 }
 
 type StatsData struct {
@@ -429,4 +429,3 @@ func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(data)
 }
-

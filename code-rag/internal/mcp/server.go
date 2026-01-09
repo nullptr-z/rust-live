@@ -92,6 +92,7 @@ type InputSchema struct {
 type Property struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
+	Default     interface{} `json:"default,omitempty"`
 }
 
 type ToolCallParams struct {
@@ -174,6 +175,11 @@ func (s *Server) handleToolsList(req *Request) {
 						Type:        "string",
 						Description: "要分析的函数名称（支持模糊匹配）",
 					},
+					"limit": {
+						Type:        "number",
+						Description: "每个分类（直接调用者、间接调用者等）最多返回的函数数量，默认 50",
+						Default:     50,
+					},
 				},
 				Required: []string{"function"},
 			},
@@ -191,6 +197,11 @@ func (s *Server) handleToolsList(req *Request) {
 					"depth": {
 						Type:        "number",
 						Description: "递归查询深度，0表示无限",
+					},
+					"limit": {
+						Type:        "number",
+						Description: "最多返回的函数数量，默认 50",
+						Default:     50,
 					},
 				},
 				Required: []string{"function"},
@@ -210,6 +221,11 @@ func (s *Server) handleToolsList(req *Request) {
 						Type:        "number",
 						Description: "递归查询深度，0表示无限",
 					},
+					"limit": {
+						Type:        "number",
+						Description: "最多返回的函数数量，默认 50",
+						Default:     50,
+					},
 				},
 				Required: []string{"function"},
 			},
@@ -224,6 +240,11 @@ func (s *Server) handleToolsList(req *Request) {
 						Type:        "string",
 						Description: "搜索模式（函数名的一部分）",
 					},
+					"limit": {
+						Type:        "number",
+						Description: "最多返回的函数数量，默认 50",
+						Default:     50,
+					},
 				},
 				Required: []string{"pattern"},
 			},
@@ -236,7 +257,13 @@ func (s *Server) handleToolsList(req *Request) {
 				Properties: map[string]Property{
 					"limit": {
 						Type:        "number",
-						Description: "限制返回数量",
+						Description: "最多返回的函数数量，默认 50",
+						Default:     50,
+					},
+					"offset": {
+						Type:        "number",
+						Description: "跳过前N个函数，用于分页，默认 0",
+						Default:     0,
 					},
 				},
 			},
@@ -308,13 +335,115 @@ func (s *Server) toolImpact(args map[string]interface{}) (string, bool) {
 		return "错误：需要提供函数名称", true
 	}
 
+	limit := 50
+	if l, ok := args["limit"].(float64); ok && l > 0 {
+		limit = int(l)
+	}
+
 	analyzer := impact.NewAnalyzer(s.db)
 	report, err := analyzer.AnalyzeImpact(funcName, 3, 2)
 	if err != nil {
 		return fmt.Sprintf("错误：%v", err), true
 	}
 
-	return report.FormatMarkdown(), false
+	return formatImpactWithLimit(report, limit), false
+}
+
+func formatImpactWithLimit(report *impact.ImpactReport, limit int) string {
+	var result string
+
+	result += fmt.Sprintf("## 变更影响分析: %s\n\n", report.Target.Name)
+	result += fmt.Sprintf("**位置:** %s:%d\n\n", report.Target.File, report.Target.Line)
+
+	if report.Target.Signature != "" {
+		result += fmt.Sprintf("**签名:** `%s`\n\n", report.Target.Signature)
+	}
+
+	if report.Target.Doc != "" {
+		result += fmt.Sprintf("**文档:** %s\n\n", report.Target.Doc)
+	}
+
+	// Direct callers
+	result += "### 直接调用者 (需检查是否需要同步修改)\n\n"
+	if len(report.DirectCallers) == 0 {
+		result += "_无直接调用者_\n\n"
+	} else {
+		total := len(report.DirectCallers)
+		callers := report.DirectCallers
+		if len(callers) > limit {
+			callers = callers[:limit]
+		}
+		result += "| 函数 | 文件 | 行号 |\n"
+		result += "|------|------|------|\n"
+		for _, c := range callers {
+			result += fmt.Sprintf("| %s | %s | %d |\n", c.Name, c.File, c.Line)
+		}
+		if total > limit {
+			result += fmt.Sprintf("\n_（共 %d 个，仅显示前 %d 个）_\n", total, limit)
+		}
+		result += "\n"
+	}
+
+	// Indirect callers
+	if len(report.IndirectCallers) > 0 {
+		result += "### 间接调用者 (可能受影响)\n\n"
+		total := len(report.IndirectCallers)
+		callers := report.IndirectCallers
+		if len(callers) > limit {
+			callers = callers[:limit]
+		}
+		result += "| 函数 | 文件 | 行号 |\n"
+		result += "|------|------|------|\n"
+		for _, c := range callers {
+			result += fmt.Sprintf("| %s | %s | %d |\n", c.Name, c.File, c.Line)
+		}
+		if total > limit {
+			result += fmt.Sprintf("\n_（共 %d 个，仅显示前 %d 个）_\n", total, limit)
+		}
+		result += "\n"
+	}
+
+	// Direct callees
+	result += "### 下游依赖 (本函数调用的)\n\n"
+	if len(report.DirectCallees) == 0 {
+		result += "_无下游依赖_\n\n"
+	} else {
+		total := len(report.DirectCallees)
+		callees := report.DirectCallees
+		if len(callees) > limit {
+			callees = callees[:limit]
+		}
+		result += "| 函数 | 文件 | 行号 |\n"
+		result += "|------|------|------|\n"
+		for _, c := range callees {
+			result += fmt.Sprintf("| %s | %s | %d |\n", c.Name, c.File, c.Line)
+		}
+		if total > limit {
+			result += fmt.Sprintf("\n_（共 %d 个，仅显示前 %d 个）_\n", total, limit)
+		}
+		result += "\n"
+	}
+
+	// Indirect callees
+	if len(report.IndirectCallees) > 0 {
+		result += "### 间接下游依赖\n\n"
+		total := len(report.IndirectCallees)
+		callees := report.IndirectCallees
+		if len(callees) > limit {
+			callees = callees[:limit]
+		}
+		result += "| 函数 | 文件 | 行号 |\n"
+		result += "|------|------|------|\n"
+		for _, c := range callees {
+			result += fmt.Sprintf("| %s | %s | %d |\n", c.Name, c.File, c.Line)
+		}
+		if total > limit {
+			result += fmt.Sprintf("\n_（共 %d 个，仅显示前 %d 个）_\n", total, limit)
+		}
+		result += "\n"
+	}
+
+	return result
 }
 
 func (s *Server) toolUpstream(args map[string]interface{}) (string, bool) {
@@ -326,6 +455,11 @@ func (s *Server) toolUpstream(args map[string]interface{}) (string, bool) {
 	depth := 0
 	if d, ok := args["depth"].(float64); ok {
 		depth = int(d)
+	}
+
+	limit := 50
+	if l, ok := args["limit"].(float64); ok && l > 0 {
+		limit = int(l)
 	}
 
 	// Find the function
@@ -347,11 +481,20 @@ func (s *Server) toolUpstream(args map[string]interface{}) (string, bool) {
 		return fmt.Sprintf("函数 %s 没有上游调用者", funcName), false
 	}
 
+	total := len(callers)
+	if len(callers) > limit {
+		callers = callers[:limit]
+	}
+
 	result := fmt.Sprintf("## %s 的上游调用者\n\n", funcName)
 	result += "| 函数 | 文件 | 行号 |\n"
 	result += "|------|------|------|\n"
 	for _, c := range callers {
 		result += fmt.Sprintf("| %s | %s | %d |\n", c.Name, c.File, c.Line)
+	}
+
+	if total > limit {
+		result += fmt.Sprintf("\n_（共 %d 个，仅显示前 %d 个）_\n", total, limit)
 	}
 
 	return result, false
@@ -366,6 +509,11 @@ func (s *Server) toolDownstream(args map[string]interface{}) (string, bool) {
 	depth := 0
 	if d, ok := args["depth"].(float64); ok {
 		depth = int(d)
+	}
+
+	limit := 50
+	if l, ok := args["limit"].(float64); ok && l > 0 {
+		limit = int(l)
 	}
 
 	// Find the function
@@ -387,11 +535,20 @@ func (s *Server) toolDownstream(args map[string]interface{}) (string, bool) {
 		return fmt.Sprintf("函数 %s 没有下游调用", funcName), false
 	}
 
+	total := len(callees)
+	if len(callees) > limit {
+		callees = callees[:limit]
+	}
+
 	result := fmt.Sprintf("## %s 的下游调用\n\n", funcName)
 	result += "| 函数 | 文件 | 行号 |\n"
 	result += "|------|------|------|\n"
 	for _, c := range callees {
 		result += fmt.Sprintf("| %s | %s | %d |\n", c.Name, c.File, c.Line)
+	}
+
+	if total > limit {
+		result += fmt.Sprintf("\n_（共 %d 个，仅显示前 %d 个）_\n", total, limit)
 	}
 
 	return result, false
@@ -403,6 +560,11 @@ func (s *Server) toolSearch(args map[string]interface{}) (string, bool) {
 		return "错误：需要提供搜索模式", true
 	}
 
+	limit := 50
+	if l, ok := args["limit"].(float64); ok && l > 0 {
+		limit = int(l)
+	}
+
 	nodes, err := s.db.FindNodesByPattern(pattern)
 	if err != nil {
 		return fmt.Sprintf("错误：%v", err), true
@@ -412,7 +574,17 @@ func (s *Server) toolSearch(args map[string]interface{}) (string, bool) {
 		return fmt.Sprintf("未找到匹配 '%s' 的函数", pattern), false
 	}
 
-	result := fmt.Sprintf("## 搜索结果：%s\n\n找到 %d 个匹配\n\n", pattern, len(nodes))
+	total := len(nodes)
+	if len(nodes) > limit {
+		nodes = nodes[:limit]
+	}
+
+	result := fmt.Sprintf("## 搜索结果：%s\n\n找到 %d 个匹配", pattern, total)
+	if total > limit {
+		result += fmt.Sprintf("（显示前 %d 个）", limit)
+	}
+	result += "\n\n"
+
 	result += "| 函数 | 文件 | 行号 |\n"
 	result += "|------|------|------|\n"
 	for _, n := range nodes {
@@ -423,9 +595,14 @@ func (s *Server) toolSearch(args map[string]interface{}) (string, bool) {
 }
 
 func (s *Server) toolList(args map[string]interface{}) (string, bool) {
-	limit := 0
-	if l, ok := args["limit"].(float64); ok {
+	limit := 50
+	if l, ok := args["limit"].(float64); ok && l > 0 {
 		limit = int(l)
+	}
+
+	offset := 0
+	if o, ok := args["offset"].(float64); ok && o > 0 {
+		offset = int(o)
 	}
 
 	funcs, err := s.db.GetAllFunctions()
@@ -437,14 +614,26 @@ func (s *Server) toolList(args map[string]interface{}) (string, bool) {
 		return "项目中没有函数", false
 	}
 
-	count := len(funcs)
-	if limit > 0 && limit < count {
-		funcs = funcs[:limit]
+	total := len(funcs)
+
+	// Apply offset
+	if offset >= total {
+		return fmt.Sprintf("偏移量 %d 超出范围（共 %d 个函数）", offset, total), false
+	}
+	if offset > 0 {
+		funcs = funcs[offset:]
 	}
 
-	result := fmt.Sprintf("## 函数列表\n\n共 %d 个函数", count)
-	if limit > 0 && limit < count {
-		result += fmt.Sprintf("（显示前 %d 个）", limit)
+	// Apply limit
+	displayed := len(funcs)
+	if limit > 0 && limit < len(funcs) {
+		funcs = funcs[:limit]
+		displayed = limit
+	}
+
+	result := fmt.Sprintf("## 函数列表\n\n共 %d 个函数", total)
+	if offset > 0 || displayed < total-offset {
+		result += fmt.Sprintf("（显示 %d-%d）", offset+1, offset+displayed)
 	}
 	result += "\n\n"
 
