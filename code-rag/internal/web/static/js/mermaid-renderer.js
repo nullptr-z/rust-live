@@ -56,14 +56,14 @@ async function renderMermaidGraph(data, skipAutoFit = false) {
   let lines = [];
   lines.push(`flowchart ${currentDirection}`);
 
-  // Modern style definitions with gradients and rounded corners
-  lines.push(`  %% Modern styles`);
-  lines.push(`  classDef current fill:#0ea5e9,stroke:#38bdf8,color:#fff,stroke-width:2px,rx:12,ry:12`);
-  lines.push(`  classDef caller fill:#6366f1,stroke:#818cf8,color:#fff,stroke-width:1px,rx:8,ry:8`);
-  lines.push(`  classDef callee fill:#10b981,stroke:#34d399,color:#fff,stroke-width:1px,rx:8,ry:8`);
-  // 叶子节点样式 - 虚线边框表示可展开
-  lines.push(`  classDef leafCaller fill:#4f46e5,stroke:#a5b4fc,color:#fff,stroke-width:2px,stroke-dasharray:4 2,rx:8,ry:8`);
-  lines.push(`  classDef leafCallee fill:#059669,stroke:#6ee7b7,color:#fff,stroke-width:2px,stroke-dasharray:4 2,rx:8,ry:8`);
+  // Metallic style definitions with subtle glow
+  lines.push(`  %% Metallic Styles`);
+  lines.push(`  classDef current fill:#1e293b,stroke:#64748b,stroke-width:2.5px,color:#e2e8f0`);
+  lines.push(`  classDef caller fill:#334155,stroke:#475569,stroke-width:2px,color:#cbd5e1`);
+  lines.push(`  classDef callee fill:#1e3a4c,stroke:#2d5a6e,stroke-width:2px,color:#bae6fd`);
+  // 叶子节点样式 - 高亮边框（无虚线）
+  lines.push(`  classDef leafCaller fill:#312e81,stroke:#6366f1,stroke-width:1px,stroke-dasharray:5 3,color:#c7d2fe`);
+  lines.push(`  classDef leafCallee fill:#134e4a,stroke:#14b8a6,stroke-width:1px,stroke-dasharray:5 3,color:#99f6e4`);
 
   // Current node (center) - use stadium shape for emphasis
   const currentId = nodeIdMap[node.id];

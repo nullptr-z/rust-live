@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CRAG - 代码调用图可视化</title>
   <!-- Mermaid -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
   <style>
     :root {
       --bg-primary: #0d1117;
@@ -396,7 +396,8 @@
     #mermaid-graph .node circle,
     #mermaid-graph .node ellipse,
     #mermaid-graph .node path {
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3))
+              drop-shadow(0 0.5px 1px rgba(148, 163, 184, 0.1));
       rx: 8;
       ry: 8;
     }
@@ -409,10 +410,18 @@
     #mermaid-graph .edgePath path {
       stroke-width: 2px;
       stroke-linecap: round;
+      filter: drop-shadow(0 0 2px rgba(71, 85, 105, 0.3));
+      transition: all 0.3s ease;
+    }
+
+    #mermaid-graph .edgePath:hover path {
+      stroke-width: 2.5px;
+      filter: drop-shadow(0 0 4px rgba(100, 116, 139, 0.5));
     }
 
     #mermaid-graph .edgePath marker path {
-      fill: #9ca3af;
+      fill: #64748b;
+      filter: drop-shadow(0 0 1px rgba(100, 116, 139, 0.3));
     }
 
     #mermaid-graph .cluster rect {
@@ -420,15 +429,18 @@
       ry: 12;
     }
 
-    /* Hover effects */
+    /* Subtle metallic hover effects */
     #mermaid-graph .node:hover rect,
     #mermaid-graph .node:hover polygon {
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4)) brightness(1.1);
+      filter: drop-shadow(0 2px 6px rgba(100, 116, 139, 0.35))
+              drop-shadow(0 1px 2px rgba(226, 232, 240, 0.15))
+              brightness(1.15);
       cursor: pointer;
+      transform: translateY(-1px);
     }
 
     #mermaid-graph .node {
-      transition: filter 0.15s ease, transform 0.15s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* 叶子节点悬停时的脉冲动画提示可展开 */

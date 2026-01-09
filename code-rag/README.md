@@ -21,6 +21,58 @@ crag 通过精确的静态分析构建函数调用图谱：
 - 将调用关系持久化到 SQLite，支持快速查询
 - 提供影响分析报告，可直接作为 AI 上下文
 
+## 最佳实践工作流
+
+1. 项目初始化
+
+```sh
+crag analyze . -o .crag.db
+```
+
+2. 配置 Cursor/Claude MCP
+
+```json
+// .cursor/mcp.json 或 claude_desktop_config.json
+{
+  "mcpServers": {
+    "crag": {
+      "command": "crag",
+      "args": ["mcp", "-d", "/absolute/path/.crag.db"]
+    }
+  }
+}
+```
+
+3. 保持数据库更新（二选一）
+
+```sh
+# 方式 1：watch 模式（开发时）
+crag watch . -d .crag.db
+```
+
+# 方式 2：git hook（提交时）
+
+```sh
+# .git/hooks/post-commit
+crag analyze . -i -o .crag.db
+```
+
+## 对话示例
+
+```sh
+你：修改 service.ProcessRequest 的参数，需要改哪些地方？
+
+AI（自动调用 crag）：
+→ 调用 impact("ProcessRequest")
+← 获得完整影响分析报告
+
+AI 回复：需要修改以下 5 个地方：
+
+1. handler/api.go:42 - HandleAPI() 直接调用
+2. middleware/auth.go:78 - AuthMiddleware() 直接调用
+3. ...
+```
+
 ## 安装
 
 ```bash
@@ -72,9 +124,9 @@ crag serve -d .crag.db
 crag analyze [项目路径] [flags]
 
 Flags:
-  -o, --output string   输出数据库路径
+  -o, --output string   输出数据库文件路径
   -i, --incremental     增量分析模式 (只在有 git 变更时分析)
-      --base string     git 比较基准 (默认 "HEAD")
+      --base string     git 比较基准分支 (默认 "HEAD")
 ```
 
 **增量分析示例：**
@@ -110,15 +162,17 @@ Flags:
 **签名:** `func(ctx context.Context, req *Request) (*Response, error)`
 
 ### 直接调用者 (需检查是否需要同步修改)
-| 函数 | 文件 | 行号 |
-|------|------|------|
-| main.main | cmd/main.go | 42 |
-| handler.ServeHTTP | internal/handler/http.go | 87 |
+
+| 函数              | 文件                     | 行号 |
+| ----------------- | ------------------------ | ---- |
+| main.main         | cmd/main.go              | 42   |
+| handler.ServeHTTP | internal/handler/http.go | 87   |
 
 ### 下游依赖 (本函数调用的)
-| 函数 | 文件 | 行号 |
-|------|------|------|
-| db.Query | internal/db/query.go | 15 |
+
+| 函数     | 文件                 | 行号 |
+| -------- | -------------------- | ---- |
+| db.Query | internal/db/query.go | 15   |
 ```
 
 ### `upstream` / `downstream` - 调用链查询
@@ -157,6 +211,7 @@ crag watch . --debounce 1000
 ```
 
 **特性：**
+
 - 自动递归监控所有目录
 - 防抖处理，避免频繁触发分析
 - 忽略测试文件（`*_test.go`）
@@ -184,6 +239,7 @@ crag serve -d .crag.db -p 3000
 ```
 
 **功能特性：**
+
 - 🔍 **交互式图谱**：缩放、拖拽、点击节点
 - 🎯 **影响分析**：双击节点高亮上下游调用链
 - 🔎 **搜索过滤**：快速定位目标函数
@@ -191,6 +247,7 @@ crag serve -d .crag.db -p 3000
 - 🎨 **按包着色**：不同模块用不同颜色区分
 
 **快捷键：**
+
 - `/` 聚焦搜索框
 - `Esc` 重置高亮
 
@@ -222,6 +279,7 @@ crag export -d .crag.db -i --base HEAD~1
 ```
 
 **输出内容：**
+
 - 项目统计（节点数、边数）
 - Mermaid 调用关系图
 - 按包分组的函数列表（位置、签名、调用关系）
@@ -249,13 +307,13 @@ crag 实现了 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)�
 
 3. 重启 Cursor，AI 即可直接使用以下工具：
 
-| 工具 | 功能 |
-|------|------|
-| `impact` | 分析函数变更影响范围 |
-| `upstream` | 查询上游调用者 |
-| `downstream` | 查询下游被调用者 |
-| `search` | 搜索函数 |
-| `list` | 列出所有函数 |
+| 工具         | 功能                 |
+| ------------ | -------------------- |
+| `impact`     | 分析函数变更影响范围 |
+| `upstream`   | 查询上游调用者       |
+| `downstream` | 查询下游被调用者     |
+| `search`     | 搜索函数             |
+| `list`       | 列出所有函数         |
 
 ### 使用示例
 
@@ -377,3 +435,6 @@ crag/
 
 MIT License
 
+```
+
+```
