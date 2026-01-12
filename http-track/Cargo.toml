@@ -6,6 +6,12 @@ edition = "2024"
 [workspace]
 
 [dependencies]
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3" }
 hyper = { version = "1.6", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
@@ -15,30 +21,53 @@ tower = { version = "0.5", features = ["full"] }
 # ===== Hyper Examples =====
 [[example]]
 name = "hy-service"
-path = "examples/hyper/service.rs"
+path = "examples/chapter01/hyper/service.rs"
 
 [[example]]
 name = "hy-client"
-path = "examples/hyper/client.rs"
+path = "examples/chapter01/hyper/client.rs"
 
 [[example]]
 name = "hy-headers"
-path = "examples/hyper/headers.rs"
+path = "examples/chapter01/hyper/headers.rs"
 
 # ===== Tower Examples =====
 [[example]]
 name = "tw-service"
-path = "examples/tower/service.rs"
+path = "examples/chapter01/tower/service.rs"
 
 [[example]]
 name = "tw-log-layer"
-path = "examples/tower/log_layer.rs"
+path = "examples/chapter01/tower/log_layer.rs"
 
 [[example]]
 name = "tw-compose"
-path = "examples/tower/compose.rs"
+path = "examples/chapter01/tower/compose.rs"
 
 [[example]]
 name = "tw-hyper"
-path = "examples/tower/hyper_tower.rs"
+path = "examples/chapter01/hyper_tower.rs"
 
+# ===== Tracing Examples =====
+[[example]]
+name = "tr-basic-log"
+path = "examples/chapter02/tracing/basic_logging.rs"
+
+[[example]]
+name = "tr-spans"
+path = "examples/chapter02/tracing/spans.rs"
+
+
+# ===== Config Examples =====
+[[example]]
+name = "cfg-basic-serde"
+path = "examples/chapter03/config/basic_serde.rs"
+
+[[example]]
+name = "cfg-load-toml"
+path = "examples/chapter03/config/load_toml.rs"
+
+# ===== Error Handling Examples =====
+[[example]]
+name = "err-custom-error"
+path = "examples/chapter04/error_handling/custom_error.rs"

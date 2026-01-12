@@ -1,0 +1,17 @@
+# 这是一个示例配置文件
+
+# 应用监听地址和端口
+listen_addr = "127.0.0.1"
+port = 8080
+
+# 上游服务的地址
+target_url = "https://httpbin.org"
+
+# 日志配置
+[log]
+level = "info" # 可选值: trace, debug, info, warn, error
+
+# 中间件配置
+[middleware]
+enable_metrics = true
+enable_tracing = false

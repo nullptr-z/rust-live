@@ -10,7 +10,8 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tower::{Layer, Service, ServiceExt};
+use std::thread::sleep;
+use tower::{Layer, Service};
 
 // ========== 第一步: 定义 Layer ==========
 //
@@ -41,7 +42,10 @@ impl<S> Layer<S> for LogLayer {
 
     fn layer(&self, inner: S) -> Self::Service {
         // TODO: 创建 LogService，传入 inner 和配置
-        todo!("包装内部服务")
+        LogService {
+            inner,
+            target: self.target,
+        }
     }
 }
 
@@ -63,7 +67,8 @@ pub struct LogService<S> {
 // 3. 后置处理（打印响应日志）
 impl<S, Request> Service<Request> for LogService<S>
 where
-    S: Service<Request>,
+    S: Service<Request> + Send,
+    S::Future: Send + 'static,
     Request: std::fmt::Debug, // 约束: 请求必须可打印
 {
     type Response = S::Response;
@@ -77,43 +82,42 @@ where
         // TODO: 委托给内部服务
         // 中间件通常直接转发 poll_ready
         // 核心方法: self.inner.poll_ready(cx)
-        todo!("委托 poll_ready")
+        self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        // TODO: 实现日志中间件逻辑
-        //
-        // 步骤:
-        // 1. println!("[{}] --> Request: {:?}", self.target, req);
-        // 2. let future = self.inner.call(req);
-        // 3. 包装 future，在完成时打印响应
-        //
-        // 提示: 使用 async move 块
-        // Box::pin(async move {
-        //     let resp = future.await;
-        //     println!("[{}] <-- Response: {:?}", target, resp.is_ok());
-        //     resp
-        // })
-        //
+        let target = self.target.to_owned();
+        // 1. 可以对 req 加工处理
+        let future = self.inner.call(req);
+        // 2. 包装 future，在完成时打印响应
+        Box::pin(async move {
+            println!("[{}] <-- before Response", target);
+            let resp = future.await;
+            println!("[{}] <-- after Response: {:?}", target, resp.is_ok());
+            resp
+        })
         // 思考: 为什么需要 move？target 和 future 的所有权去哪了？
-        todo!("前置日志 -> 调用 -> 后置日志")
     }
 }
 
 // ========== 测试用的内部服务 ==========
-struct EchoService;
+struct TestService;
 
-impl Service<String> for EchoService {
+impl Service<String> for TestService {
     type Response = String;
     type Error = std::convert::Infallible;
-    type Future = std::future::Ready<Result<String, Self::Error>>;
+    type Future = Pin<Box<dyn Future<Output = Result<String, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: String) -> Self::Future {
-        std::future::ready(Ok(format!("Echo: {}", req)))
+        Box::pin(async move {
+            // 指定秒数后返回 Hello
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            Ok(format!("TestService recevie a req: {}", req))
+        })
     }
 }
 
@@ -121,19 +125,20 @@ impl Service<String> for EchoService {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ========== 使用 Layer 包装服务 ==========
     //
-    // 方式1: 手动调用 layer()
-    // let layer = LogLayer::new("TEST");
-    // let service = layer.layer(EchoService);
+    // 方式1: 这种方式需要自己使用 Layer Trait，但是更灵活
+    let layer = LogLayer::new("my tower loger middleware");
+    let mut service: LogService<TestService> = layer.layer(TestService);
+    let call = service.call("send a request to TestService call func".to_owned());
+    let reps = tokio::spawn(call).await;
+    if reps.is_ok() {
+        println!("{:?}", reps?)
+    }
 
-    // 方式2: 使用 ServiceBuilder（推荐）
+    // 方式2: 使用 ServiceBuilder，大多时候直接使用这种方式也是可以的
     // use tower::ServiceBuilder;
     // let service = ServiceBuilder::new()
     //     .layer(LogLayer::new("TEST"))
     //     .service(EchoService);
 
-    // TODO: 创建带日志的服务，调用它
-    todo!("创建并调用日志包装的服务");
-
     Ok(())
 }
-
