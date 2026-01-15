@@ -15,7 +15,10 @@
 
 工具： Cursor (Agent Mode) 或 GitHub Copilot + Terminal。
 
-做法： 1. 在 Cursor 中开启 Composer 或 Agent 模式。 2. 将上述“全流程 Prompt 框架”作为 .cursorrules 文件存入项目根目录。这样 AI 每次对话都会遵循这个开发范式。
+做法：
+
+1. 在 Cursor 中开启 Composer 或 Agent 模式。
+2. 将上述“全流程 Prompt 框架”作为 .cursorrules 文件存入项目根目录。这样 AI 每次对话都会遵循这个开发范式。
 
 ### 方案 B：自动化流水线型（推荐进阶）
 
